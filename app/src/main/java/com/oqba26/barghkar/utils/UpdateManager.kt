@@ -143,12 +143,12 @@ class UpdateManager(private val context: Context) {
                 val bytesTotalIndex = cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
                 val statusIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
 
-                if (bytesDownloadedIndex != -1 && bytesTotalIndex != -1 && statusIndex != -1) {
+                if ((bytesDownloadedIndex != -1) && (bytesTotalIndex != -1) && (statusIndex != -1)) {
                     val bytesDownloaded = cursor.getInt(bytesDownloadedIndex)
                     val bytesTotal = cursor.getInt(bytesTotalIndex)
                     val status = cursor.getInt(statusIndex)
 
-                    if (status == DownloadManager.STATUS_SUCCESSFUL || status == DownloadManager.STATUS_FAILED) {
+                    if ((status == DownloadManager.STATUS_SUCCESSFUL) || (status == DownloadManager.STATUS_FAILED)) {
                         isDownloading = false
                     }
 

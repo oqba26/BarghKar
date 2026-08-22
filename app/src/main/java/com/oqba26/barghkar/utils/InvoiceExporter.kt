@@ -11,6 +11,7 @@ import android.text.StaticLayout
 import android.text.TextPaint
 import androidx.core.content.FileProvider
 import androidx.core.content.res.ResourcesCompat
+import androidx.core.graphics.withTranslation
 import com.oqba26.barghkar.R
 import com.oqba26.barghkar.data.local.entity.MaterialEntity
 import com.oqba26.barghkar.data.local.entity.ProjectEntity
@@ -114,6 +115,7 @@ object InvoiceExporter {
         pdfDocument.close()
     }
 
+    @Suppress("SameParameterValue")
     private fun drawRtlText(canvas: Canvas, text: String, x: Float, y: Float, width: Int, paint: TextPaint) {
         val builder = StaticLayout.Builder.obtain(text, 0, text.length, paint, width)
             .setAlignment(Layout.Alignment.ALIGN_OPPOSITE) // RTL alignment
@@ -121,10 +123,9 @@ object InvoiceExporter {
             .setIncludePad(true)
         
         val layout = builder.build()
-        canvas.save()
-        canvas.translate(x, y)
-        layout.draw(canvas)
-        canvas.restore()
+        canvas.withTranslation(x, y) {
+            layout.draw(this)
+        }
     }
 
     private fun shareFile(context: Context, file: File) {

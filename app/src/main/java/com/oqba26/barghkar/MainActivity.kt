@@ -25,7 +25,7 @@ class MainActivity : ComponentActivity() {
             
             BarghKarTheme(appFont = selectedFont) {
                 var updateInfo by remember { mutableStateOf<UpdateInfo?>(null) }
-                var isDownloading by remember { mutableStateOf(false) }
+                var isDownloading by remember { mutableStateOf(value = false) }
                 var downloadProgress by remember { mutableFloatStateOf(0f) }
                 val updateManager = remember { UpdateManager(this) }
 
