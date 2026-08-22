@@ -14,65 +14,88 @@ import com.oqba26.barghkar.utils.UpdateInfo
 @Composable
 fun UpdateDialog(
     updateInfo: UpdateInfo,
+    isDownloading: Boolean,
+    progress: Float,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
 ) {
     CustomDialog(
-        onDismissRequest = { if (!updateInfo.isForceUpdate) onDismiss() },
+        onDismissRequest = { if (!updateInfo.isForceUpdate && !isDownloading) onDismiss() },
         title = { Text("به‌روزرسانی جدید موجود است") },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Text(
                     text = "نسخه ${updateInfo.versionName}",
                     style = MaterialTheme.typography.labelLarge,
-                    color = Color.Gray
+                    color = Color.Gray,
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                Text(
-                    text = "تغییرات این نسخه:",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-
-                Text(
-                    text = updateInfo.releaseNotes,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(vertical = 8.dp)
-                )
-
-                if (updateInfo.isForceUpdate) {
+                if (isDownloading) {
                     Text(
-                        text = "نصب این به‌روزرسانی برای ادامه استفاده از برنامه الزامی است.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(top = 8.dp)
+                        text = "در حال دریافت به‌روزرسانی...",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary,
                     )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.primaryContainer,
+                    )
+                    Text(
+                        text = "${(progress * 100).toInt()}%",
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                } else {
+                    Text(
+                        text = "تغییرات این نسخه:",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+
+                    Text(
+                        text = updateInfo.releaseNotes,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(vertical = 8.dp),
+                    )
+
+                    if (updateInfo.isForceUpdate) {
+                        Text(
+                            text = "نصب این به‌روزرسانی برای ادامه استفاده از برنامه الزامی است.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                    }
                 }
             }
         },
         confirmButton = {
             Button(
                 onClick = onConfirm,
-                modifier = Modifier.padding(horizontal = 4.dp)
+                enabled = !isDownloading,
+                modifier = Modifier.padding(horizontal = 4.dp),
             ) {
                 Text(text = "تایید و بروزرسانی")
             }
         },
         dismissButton = {
-            if (!updateInfo.isForceUpdate) {
+            if (!updateInfo.isForceUpdate && !isDownloading) {
                 Button(
                     onClick = onDismiss,
                     modifier = Modifier.padding(horizontal = 4.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.errorContainer,
-                        contentColor = MaterialTheme.colorScheme.onErrorContainer
-                    )
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                    ),
                 ) {
                     Text(text = "بعداً")
                 }
             }
-        }
+        },
     )
 }

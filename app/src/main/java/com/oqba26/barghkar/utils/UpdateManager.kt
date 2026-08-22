@@ -83,14 +83,16 @@ class UpdateManager(private val context: Context) {
     }
 
     fun downloadAndInstall(url: String, fileName: String): Long {
-        if (!context.packageManager.canRequestPackageInstalls()) {
-            Toast.makeText(context, "لطفاً برای نصب آپدیت، اجازه نصب برنامه‌های ناشناخته را بدهید", Toast.LENGTH_LONG).show()
-            val intent = Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
-                data = "package:${context.packageName}".toUri()
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (!context.packageManager.canRequestPackageInstalls()) {
+                Toast.makeText(context, "لطفاً برای نصب آپدیت، اجازه نصب برنامه‌های ناشناخته را بدهید", Toast.LENGTH_LONG).show()
+                val intent = Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                    data = "package:${context.packageName}".toUri()
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                context.startActivity(intent)
+                return -1L
             }
-            context.startActivity(intent)
-            return -1L
         }
 
         Toast.makeText(context, "در حال شروع دانلود به‌روزرسانی...", Toast.LENGTH_SHORT).show()
@@ -136,7 +138,7 @@ class UpdateManager(private val context: Context) {
         while (isDownloading) {
             val query = DownloadManager.Query().setFilterById(downloadId)
             val cursor = downloadManager.query(query)
-            if (cursor != null && cursor.moveToFirst()) {
+            if ((cursor != null) && cursor.moveToFirst()) {
                 val bytesDownloadedIndex = cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
                 val bytesTotalIndex = cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
                 val statusIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
@@ -172,9 +174,9 @@ class UpdateManager(private val context: Context) {
 
         try {
             val contentUri = FileProvider.getUriForFile(
-                context, 
+                context,
                 "${context.packageName}.fileprovider",
-                apkFile
+                apkFile,
             )
 
             val intent = Intent(Intent.ACTION_VIEW).apply {

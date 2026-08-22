@@ -20,7 +20,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.res.stringResource
 import com.oqba26.barghkar.R
 import com.oqba26.barghkar.ui.components.CustomDialog
-import com.oqba26.barghkar.ui.viewmodels.CustomerViewModel
 import com.oqba26.barghkar.ui.viewmodels.ProjectViewModel
 import com.oqba26.barghkar.utils.InvoiceExporter
 import java.text.NumberFormat
@@ -32,7 +31,6 @@ import java.util.*
 fun MaterialListScreen(
     projectId: Long,
     projectViewModel: ProjectViewModel = viewModel(),
-    customerViewModel: CustomerViewModel = viewModel()
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     val project = projectViewModel.allProjects.collectAsState().value.find { it.id == projectId }
@@ -45,12 +43,14 @@ fun MaterialListScreen(
             TopAppBar(
                 title = { Text(project?.name ?: stringResource(R.string.project_details)) },
                 actions = {
-                    IconButton(onClick = {
-                        project?.let {
-                            val text = InvoiceExporter.generateTextInvoice(it, materials)
-                            InvoiceExporter.shareTextInvoice(context, text)
-                        }
-                    }) {
+                    IconButton(
+                        onClick = {
+                            project?.let {
+                                val text = InvoiceExporter.generateTextInvoice(it, materials)
+                                InvoiceExporter.shareTextInvoice(context, text)
+                            }
+                        },
+                    ) {
                         Icon(Icons.Default.Share, contentDescription = "SMS")
                     }
                     IconButton(onClick = {
@@ -92,7 +92,7 @@ private fun formatPrice(price: Long): String {
 
 @Composable
 fun MaterialsTab(projectId: Long, viewModel: ProjectViewModel, materials: List<com.oqba26.barghkar.data.local.entity.MaterialEntity>) {
-    var showDialog by remember { mutableStateOf(false) }
+    var showDialog by remember { mutableStateOf(value = false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -154,7 +154,7 @@ fun MaterialsTab(projectId: Long, viewModel: ProjectViewModel, materials: List<c
                 Button(onClick = {
                     val q = quantity.toIntOrNull() ?: 0
                     val p = price.toLongOrNull() ?: 0L
-                    if (name.isNotBlank() && q > 0) {
+                    if (name.isNotBlank() && (q > 0)) {
                         viewModel.addMaterial(projectId, name, q, unit, p)
                         showDialog = false
                     }
@@ -172,7 +172,7 @@ fun MaterialsTab(projectId: Long, viewModel: ProjectViewModel, materials: List<c
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InstallmentsTab(projectId: Long, viewModel: ProjectViewModel, installments: List<com.oqba26.barghkar.data.local.entity.InstallmentEntity>) {
-    var showDialog by remember { mutableStateOf(false) }
+    var showDialog by remember { mutableStateOf(value = false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
