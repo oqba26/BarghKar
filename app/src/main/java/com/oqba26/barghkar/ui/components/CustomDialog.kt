@@ -1,0 +1,64 @@
+package com.oqba26.barghkar.ui.components
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+
+@Composable
+fun CustomDialog(
+    onDismissRequest: () -> Unit,
+    title: @Composable () -> Unit,
+    text: @Composable () -> Unit,
+    confirmButton: @Composable () -> Unit,
+    dismissButton: @Composable () -> Unit,
+) {
+    Dialog(onDismissRequest = onDismissRequest) {
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+            Surface(
+                shape = RoundedCornerShape(28.dp),
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = 6.dp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .wrapContentHeight()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .padding(24.dp)
+                        .fillMaxWidth()
+                ) {
+                    CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
+                        Box(modifier = Modifier.padding(bottom = 16.dp)) {
+                            ProvideTextStyle(MaterialTheme.typography.headlineSmall) {
+                                title()
+                            }
+                        }
+
+                        Box(modifier = Modifier.padding(bottom = 24.dp)) {
+                            ProvideTextStyle(MaterialTheme.typography.bodyMedium) {
+                                text()
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            // Confirm button will be on the right (Start in RTL)
+                            confirmButton()
+                            // Dismiss button will be on the left (End in RTL)
+                            dismissButton()
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
