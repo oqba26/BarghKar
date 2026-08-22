@@ -8,6 +8,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Calculate
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,6 +23,7 @@ import com.oqba26.barghkar.ui.components.CustomDialog
 import com.oqba26.barghkar.ui.viewmodels.CustomerViewModel
 import com.oqba26.barghkar.ui.viewmodels.ProjectViewModel
 import com.oqba26.barghkar.utils.InvoiceExporter
+import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -84,6 +86,10 @@ fun MaterialListScreen(
     }
 }
 
+private fun formatPrice(price: Long): String {
+    return NumberFormat.getInstance(Locale("fa", "IR")).format(price)
+}
+
 @Composable
 fun MaterialsTab(projectId: Long, viewModel: ProjectViewModel, materials: List<com.oqba26.barghkar.data.local.entity.MaterialEntity>) {
     var showDialog by remember { mutableStateOf(false) }
@@ -104,7 +110,7 @@ fun MaterialsTab(projectId: Long, viewModel: ProjectViewModel, materials: List<c
                         Column(modifier = Modifier.weight(1f)) {
                             Text(text = material.name, style = MaterialTheme.typography.titleMedium)
                             Text(
-                                text = "${material.quantity} ${material.unit} × ${material.pricePerUnit} تومان",
+                                text = "${material.quantity} ${material.unit} × ${formatPrice(material.pricePerUnit)} تومان",
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
@@ -163,6 +169,7 @@ fun MaterialsTab(projectId: Long, viewModel: ProjectViewModel, materials: List<c
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InstallmentsTab(projectId: Long, viewModel: ProjectViewModel, installments: List<com.oqba26.barghkar.data.local.entity.InstallmentEntity>) {
     var showDialog by remember { mutableStateOf(false) }
@@ -181,7 +188,7 @@ fun InstallmentsTab(projectId: Long, viewModel: ProjectViewModel, installments: 
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Column {
-                            Text(text = "${installment.amount} تومان", style = MaterialTheme.typography.titleMedium)
+                            Text(text = "${formatPrice(installment.amount)} تومان", style = MaterialTheme.typography.titleMedium)
                             Text(
                                 text = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(Date(installment.dueDate)),
                                 style = MaterialTheme.typography.bodySmall
@@ -205,23 +212,37 @@ fun InstallmentsTab(projectId: Long, viewModel: ProjectViewModel, installments: 
 
     if (showDialog) {
         var amount by remember { mutableStateOf("") }
-        // Simple date picker placeholder logic
-        val dueDate = System.currentTimeMillis() + (86400000L * 7L) // Default 7 days later
+        var showDatePicker by remember { mutableStateOf(false) }
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = System.currentTimeMillis())
+        val selectedDate = datePickerState.selectedDateMillis ?: System.currentTimeMillis()
 
         CustomDialog(
             onDismissRequest = { showDialog = false },
             title = { Text(stringResource(R.string.add_installment)) },
             text = {
                 Column {
-                    TextField(value = amount, onValueChange = { amount = it }, label = { Text(stringResource(R.string.amount)) })
-                    Text("سررسید: ۷ روز آینده (پیش‌فرض)", modifier = Modifier.padding(top = 8.dp))
+                    TextField(
+                        value = amount,
+                        onValueChange = { amount = it },
+                        label = { Text(stringResource(R.string.amount)) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedButton(
+                        onClick = { showDatePicker = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.DateRange, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(text = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(Date(selectedDate)))
+                    }
                 }
             },
             confirmButton = {
                 Button(onClick = {
                     val a = amount.toLongOrNull() ?: 0L
                     if (a > 0) {
-                        viewModel.addInstallment(projectId, a, dueDate)
+                        viewModel.addInstallment(projectId, a, selectedDate)
                         showDialog = false
                     }
                 }) { Text(stringResource(R.string.confirm)) }
@@ -232,6 +253,24 @@ fun InstallmentsTab(projectId: Long, viewModel: ProjectViewModel, installments: 
                 }
             }
         )
+
+        if (showDatePicker) {
+            DatePickerDialog(
+                onDismissRequest = { showDatePicker = false },
+                confirmButton = {
+                    TextButton(onClick = { showDatePicker = false }) {
+                        Text(stringResource(R.string.confirm))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDatePicker = false }) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                }
+            ) {
+                DatePicker(state = datePickerState)
+            }
+        }
     }
 }
 
@@ -254,11 +293,11 @@ fun InvoiceTab(project: com.oqba26.barghkar.data.local.entity.ProjectEntity?, ma
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(16.dp))
-        Text(text = "جمع متریال: $totalMaterial تومان", style = MaterialTheme.typography.titleMedium)
-        Text(text = "دستمزد: ${project.totalWage} تومان", style = MaterialTheme.typography.titleMedium)
+        Text(text = "جمع متریال: ${formatPrice(totalMaterial)} تومان", style = MaterialTheme.typography.titleMedium)
+        Text(text = "دستمزد: ${formatPrice(project.totalWage)} تومان", style = MaterialTheme.typography.titleMedium)
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
         Text(
-            text = "جمع کل: ${totalMaterial + project.totalWage} تومان",
+            text = "جمع کل: ${formatPrice(totalMaterial + project.totalWage)} تومان",
             style = MaterialTheme.typography.headlineSmall,
             color = MaterialTheme.colorScheme.primary
         )
