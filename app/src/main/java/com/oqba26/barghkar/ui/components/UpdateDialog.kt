@@ -1,0 +1,78 @@
+package com.oqba26.barghkar.ui.components
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.oqba26.barghkar.utils.UpdateInfo
+
+@Composable
+fun UpdateDialog(
+    updateInfo: UpdateInfo,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    CustomDialog(
+        onDismissRequest = { if (!updateInfo.isForceUpdate) onDismiss() },
+        title = { Text("به‌روزرسانی جدید موجود است") },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                Text(
+                    text = "نسخه ${updateInfo.versionName}",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Color.Gray
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "تغییرات این نسخه:",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                Text(
+                    text = updateInfo.releaseNotes,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+
+                if (updateInfo.isForceUpdate) {
+                    Text(
+                        text = "نصب این به‌روزرسانی برای ادامه استفاده از برنامه الزامی است.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                modifier = Modifier.padding(horizontal = 4.dp)
+            ) {
+                Text(text = "تایید و بروزرسانی")
+            }
+        },
+        dismissButton = {
+            if (!updateInfo.isForceUpdate) {
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier.padding(horizontal = 4.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                ) {
+                    Text(text = "بعداً")
+                }
+            }
+        }
+    )
+}
