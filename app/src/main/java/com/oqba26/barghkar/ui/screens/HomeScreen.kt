@@ -23,11 +23,20 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.res.stringResource
 import com.oqba26.barghkar.R
+import com.oqba26.barghkar.ui.viewmodels.ProjectViewModel
 import com.oqba26.barghkar.ui.viewmodels.UtilityViewModel
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(viewModel: UtilityViewModel = viewModel()) {
+fun HomeScreen(
+    onNavigateToProject: (Long) -> Unit,
+    utilityViewModel: UtilityViewModel = viewModel(),
+    projectViewModel: ProjectViewModel = viewModel()
+) {
+    val projects by projectViewModel.allProjects.collectAsState()
+    
     Scaffold(
         topBar = {
             TopAppBar(
@@ -56,6 +65,40 @@ fun HomeScreen(viewModel: UtilityViewModel = viewModel()) {
             item {
                 HomeHeader()
             }
+            
+            // Recent Projects Section
+            if (projects.isNotEmpty()) {
+                item {
+                    Text(
+                        text = "پروژه‌های اخیر",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        modifier = Modifier.padding(horizontal = 4.dp)
+                    )
+                }
+                
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        projects.take(2).forEach { project ->
+                            ElevatedCard(
+                                onClick = { onNavigateToProject(project.id) },
+                                modifier = Modifier.weight(1f).height(100.dp),
+                                shape = RoundedCornerShape(16.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(12.dp).fillMaxSize(),
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    Text(text = project.name, style = MaterialTheme.typography.titleSmall, maxLines = 1)
+                                    Text(text = project.description, style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
 
             // Quick Tools Grid Title
             item {
@@ -69,17 +112,17 @@ fun HomeScreen(viewModel: UtilityViewModel = viewModel()) {
             // Flashlight Section
             item {
                 FlashlightCard(
-                    isOn = viewModel.isFlashlightOn,
-                    onClick = { viewModel.toggleFlashlight() }
+                    isOn = utilityViewModel.isFlashlightOn,
+                    onClick = { utilityViewModel.toggleFlashlight() }
                 )
             }
 
             // Unit Converter Section
             item {
                 UnitConverterCard(
-                    awgValue = viewModel.awgValue,
-                    mm2Value = viewModel.mm2Value,
-                    onAwgChange = { viewModel.onAwgChange(it) }
+                    awgValue = utilityViewModel.awgValue,
+                    mm2Value = utilityViewModel.mm2Value,
+                    onAwgChange = { utilityViewModel.onAwgChange(it) }
                 )
             }
             

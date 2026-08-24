@@ -30,9 +30,31 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun addProject(name: String, description: String, customerId: Long? = null, totalWage: Long = 0L) {
+    fun addProject(
+        name: String, 
+        description: String, 
+        customerId: Long? = null, 
+        totalWage: Long = 0L,
+        area: Double = 0.0,
+        priceFixture: Long = 0L,
+        priceMeter: Long = 0L,
+        p1: Long = 0L,
+        p2: Long = 0L,
+        p3: Long = 0L
+    ) {
         viewModelScope.launch {
-            repository.insertProject(ProjectEntity(name = name, description = description, customerId = customerId, totalWage = totalWage))
+            repository.insertProject(ProjectEntity(
+                name = name, 
+                description = description, 
+                customerId = customerId, 
+                totalWage = totalWage,
+                infrastructureArea = area,
+                pricePerFixture = priceFixture,
+                pricePerMeter = priceMeter,
+                firstPayment = p1,
+                secondPayment = p2,
+                thirdPayment = p3
+            ))
         }
     }
 
@@ -58,15 +80,21 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
         return materials
     }
 
-    fun addMaterial(projectId: Long, name: String, quantity: Int, unit: String, pricePerUnit: Long = 0L) {
+    fun addMaterial(projectId: Long, name: String, quantity: Int, unit: String, pricePerUnit: Long = 0L, status: com.oqba26.barghkar.data.model.RecordStatus = com.oqba26.barghkar.data.model.RecordStatus.APPROVED) {
         viewModelScope.launch {
-            repository.insertMaterial(MaterialEntity(projectId = projectId, name = name, quantity = quantity, unit = unit, pricePerUnit = pricePerUnit))
+            repository.insertMaterial(MaterialEntity(projectId = projectId, name = name, quantity = quantity, unit = unit, pricePerUnit = pricePerUnit, status = status))
         }
     }
 
     fun deleteMaterial(material: MaterialEntity) {
         viewModelScope.launch {
             repository.deleteMaterial(material)
+        }
+    }
+
+    fun updateMaterial(material: MaterialEntity) {
+        viewModelScope.launch {
+            repository.insertMaterial(material)
         }
     }
 
@@ -80,9 +108,9 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
         return installments
     }
 
-    fun addInstallment(projectId: Long, amount: Long, dueDate: Long) {
+    fun addInstallment(projectId: Long, amount: Long, dueDate: Long, status: com.oqba26.barghkar.data.model.RecordStatus = com.oqba26.barghkar.data.model.RecordStatus.APPROVED) {
         viewModelScope.launch {
-            repository.insertInstallment(InstallmentEntity(projectId = projectId, amount = amount, dueDate = dueDate))
+            repository.insertInstallment(InstallmentEntity(projectId = projectId, amount = amount, dueDate = dueDate, status = status))
         }
     }
 

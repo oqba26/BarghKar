@@ -2,6 +2,7 @@ package com.oqba26.barghkar.ui.navigation
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
@@ -12,6 +13,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import com.oqba26.barghkar.R
 
 sealed class Screen(val route: String, val titleRes: Int, val icon: ImageVector) {
+    data object Login : Screen("login", R.string.login, Icons.AutoMirrored.Filled.Login)
     data object Home : Screen("home", R.string.home, Icons.Default.Home)
     data object Calculators : Screen("calculators", R.string.calculators, Icons.Default.Calculate)
     data object References : Screen("references", R.string.references, Icons.Default.Info)

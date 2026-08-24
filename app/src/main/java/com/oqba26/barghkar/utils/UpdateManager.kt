@@ -200,4 +200,17 @@ class UpdateManager(private val context: Context) {
             else -> false
         }
     }
+
+    fun cleanupOldApks() {
+        try {
+            val downloadDir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+            downloadDir?.listFiles()?.forEach { file ->
+                if (file.name.endsWith(".apk", ignoreCase = true)) {
+                    file.delete()
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
 }

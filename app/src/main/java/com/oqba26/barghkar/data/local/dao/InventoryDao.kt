@@ -17,4 +17,7 @@ interface InventoryDao {
 
     @Delete
     suspend fun deleteInventory(material: InventoryMaterialEntity)
+
+    @Query("SELECT * FROM inventory_materials WHERE isSynced = 0")
+    suspend fun getUnsyncedInventory(): List<InventoryMaterialEntity>
 }

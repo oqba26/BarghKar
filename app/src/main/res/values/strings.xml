@@ -71,4 +71,14 @@
     <string name="calculator">ماشین حساب</string>
     <string name="toman">تومان</string>
     <string name="add_customer">افزودن مشتری</string>
+    <string name="login">ورود</string>
+    <string name="sign_up">ثبت‌نام</string>
+
+    <string name="infrastructure_area">زیربنا (متر مربع)</string>
+    <string name="price_per_fixture">قیمت هر شعله</string>
+    <string name="price_per_meter">قیمت هر متر مربع</string>
+    <string name="first_payment">پرداخت مرحله اول</string>
+    <string name="second_payment">پرداخت مرحله دوم</string>
+    <string name="third_payment">پرداخت مرحله سوم</string>
+    <string name="electrical_supplies">لوازم برق</string>
 </resources>

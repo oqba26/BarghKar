@@ -10,14 +10,28 @@ import com.oqba26.barghkar.ui.screens.MainScreen
 import com.oqba26.barghkar.ui.theme.BarghKarTheme
 import com.oqba26.barghkar.utils.UpdateInfo
 import com.oqba26.barghkar.utils.UpdateManager
+import androidx.work.Constraints
+import androidx.work.NetworkType
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import com.oqba26.barghkar.data.sync.SyncWorker
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.milliseconds
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val settingsManager = (application as BarghKarApp).settingsManager
+        
+        // پاکسازی فایل‌های APK قدیمی
+        val updateManager = UpdateManager(this)
+        updateManager.cleanupOldApks()
+
+        // تنظیم همگام‌سازی خودکار
+        setupSync()
+
         enableEdgeToEdge()
         setContent {
             val selectedFont by settingsManager.selectedFont.collectAsState()
@@ -27,7 +41,7 @@ class MainActivity : ComponentActivity() {
                 var updateInfo by remember { mutableStateOf<UpdateInfo?>(null) }
                 var isDownloading by remember { mutableStateOf(value = false) }
                 var downloadProgress by remember { mutableFloatStateOf(0f) }
-                val updateManager = remember { UpdateManager(this) }
+                // val updateManager = remember { UpdateManager(this) } // حذف شد چون در بالا تعریف شده
 
                 LaunchedEffect(Unit) {
                     delay(2000.milliseconds)
@@ -62,5 +76,21 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun setupSync() {
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+
+        val syncRequest = PeriodicWorkRequestBuilder<SyncWorker>(1, TimeUnit.HOURS)
+            .setConstraints(constraints)
+            .build()
+
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "SupabaseSync",
+            androidx.work.ExistingPeriodicWorkPolicy.KEEP,
+            syncRequest,
+        )
     }
 }

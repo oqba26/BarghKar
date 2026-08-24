@@ -31,17 +31,16 @@ fun CustomDialog(
             ) {
                 Column(
                     modifier = Modifier
-                        .padding(24.dp)
                         .fillMaxWidth()
                 ) {
                     CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
-                        Box(modifier = Modifier.padding(bottom = 16.dp)) {
+                        Box(modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 16.dp)) {
                             ProvideTextStyle(MaterialTheme.typography.headlineSmall) {
                                 title()
                             }
                         }
 
-                        Box(modifier = Modifier.padding(bottom = 24.dp)) {
+                        Box(modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 24.dp)) {
                             ProvideTextStyle(MaterialTheme.typography.bodyMedium) {
                                 text()
                             }
@@ -51,9 +50,8 @@ fun CustomDialog(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            // Confirm button will be on the right (Start in RTL)
+                            // Buttons row
                             confirmButton()
-                            // Dismiss button will be on the left (End in RTL)
                             dismissButton()
                         }
                     }

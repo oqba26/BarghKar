@@ -21,4 +21,10 @@ interface CustomerDao {
 
     @Query("SELECT * FROM projects WHERE customerId = :customerId")
     fun getProjectsForCustomer(customerId: Long): Flow<List<ProjectEntity>>
+
+    @Query("SELECT * FROM customers WHERE isSynced = 0")
+    suspend fun getUnsyncedCustomers(): List<CustomerEntity>
+
+    @Update
+    suspend fun updateCustomer(customer: CustomerEntity)
 }

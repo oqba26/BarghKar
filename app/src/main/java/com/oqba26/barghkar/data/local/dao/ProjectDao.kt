@@ -32,6 +32,24 @@ interface ProjectDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMaterial(material: MaterialEntity)
 
+    @Update
+    suspend fun updateMaterial(material: MaterialEntity)
+
     @Delete
     suspend fun deleteMaterial(material: MaterialEntity)
+
+    @Query("SELECT * FROM materials WHERE isSynced = 0")
+    suspend fun getUnsyncedMaterials(): List<MaterialEntity>
+
+    @Query("SELECT * FROM installments WHERE isSynced = 0")
+    suspend fun getUnsyncedInstallments(): List<InstallmentEntity>
+
+    @Update
+    suspend fun updateInstallment(installment: InstallmentEntity)
+
+    @Query("SELECT * FROM projects WHERE isSynced = 0")
+    suspend fun getUnsyncedProjects(): List<ProjectEntity>
+
+    @Update
+    suspend fun updateProject(project: ProjectEntity)
 }

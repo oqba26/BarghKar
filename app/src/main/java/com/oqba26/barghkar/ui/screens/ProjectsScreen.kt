@@ -17,6 +17,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.res.stringResource
 import com.oqba26.barghkar.R
 import com.oqba26.barghkar.ui.components.CustomDialog
+import com.oqba26.barghkar.ui.viewmodels.AuthViewModel
 import com.oqba26.barghkar.ui.viewmodels.CustomerViewModel
 import com.oqba26.barghkar.ui.viewmodels.ProjectViewModel
 
@@ -25,19 +26,23 @@ import com.oqba26.barghkar.ui.viewmodels.ProjectViewModel
 fun ProjectsScreen(
     onNavigateToProject: (Long) -> Unit,
     viewModel: ProjectViewModel = viewModel(),
-    customerViewModel: CustomerViewModel = viewModel()
+    customerViewModel: CustomerViewModel = viewModel(),
+    authViewModel: AuthViewModel = viewModel()
 ) {
     var showDialog by remember { mutableStateOf(value = false) }
     val projects by viewModel.allProjects.collectAsState()
     val customers by customerViewModel.allCustomers.collectAsState()
+    val isMaster = authViewModel.isMaster()
 
     Scaffold(
         topBar = {
             TopAppBar(title = { Text(stringResource(R.string.projects)) })
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_project))
+            if (isMaster) {
+                FloatingActionButton(onClick = { showDialog = true }) {
+                    Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_project))
+                }
             }
         }
     ) { innerPadding ->
@@ -73,8 +78,10 @@ fun ProjectsScreen(
                                 )
                             }
                         }
-                        IconButton(onClick = { viewModel.deleteProject(project) }) {
-                            Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete))
+                        if (isMaster) {
+                            IconButton(onClick = { viewModel.deleteProject(project) }) {
+                                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete))
+                            }
                         }
                     }
                 }
@@ -86,43 +93,72 @@ fun ProjectsScreen(
             var description by remember { mutableStateOf("") }
             var selectedCustomerId by remember { mutableStateOf<Long?>(null) }
             var expanded by remember { mutableStateOf(false) }
+            
+            var area by remember { mutableStateOf("") }
+            var priceFixture by remember { mutableStateOf("") }
+            var priceMeter by remember { mutableStateOf("") }
+            var p1 by remember { mutableStateOf("") }
+            var p2 by remember { mutableStateOf("") }
+            var p3 by remember { mutableStateOf("") }
 
             CustomDialog(
                 onDismissRequest = { showDialog = false },
                 title = { Text(stringResource(R.string.new_project)) },
                 text = {
-                    Column {
-                        TextField(value = name, onValueChange = { name = it }, label = { Text(stringResource(R.string.project_name)) }, modifier = Modifier.fillMaxWidth())
-                        Spacer(modifier = Modifier.height(8.dp))
-                        TextField(value = description, onValueChange = { description = it }, label = { Text(stringResource(R.string.description)) }, modifier = Modifier.fillMaxWidth())
-                        Spacer(modifier = Modifier.height(8.dp))
+                    LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp)) {
+                        item {
+                            TextField(value = name, onValueChange = { name = it }, label = { Text(stringResource(R.string.project_name)) }, modifier = Modifier.fillMaxWidth())
+                            Spacer(modifier = Modifier.height(8.dp))
+                            TextField(value = description, onValueChange = { description = it }, label = { Text(stringResource(R.string.description)) }, modifier = Modifier.fillMaxWidth())
+                            Spacer(modifier = Modifier.height(8.dp))
 
-                        ExposedDropdownMenuBox(
-                            expanded = expanded,
-                            onExpandedChange = { expanded = !expanded }
-                        ) {
-                            TextField(
-                                value = customers.find { it.id == selectedCustomerId }?.name ?: "انتخاب مشتری",
-                                onValueChange = {},
-                                readOnly = true,
-                                label = { Text(stringResource(R.string.customers)) },
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                                modifier = Modifier.menuAnchor().fillMaxWidth()
-                            )
-                            ExposedDropdownMenu(
+                            ExposedDropdownMenuBox(
                                 expanded = expanded,
-                                onDismissRequest = { expanded = false }
+                                onExpandedChange = { expanded = !expanded }
                             ) {
-                                customers.forEach { customer ->
-                                    DropdownMenuItem(
-                                        text = { Text(customer.name) },
-                                        onClick = {
-                                            selectedCustomerId = customer.id
-                                            expanded = false
-                                        }
-                                    )
+                                TextField(
+                                    value = customers.find { it.id == selectedCustomerId }?.name ?: "انتخاب مشتری",
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    label = { Text(stringResource(R.string.customers)) },
+                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
+                                )
+                                ExposedDropdownMenu(
+                                    expanded = expanded,
+                                    onDismissRequest = { expanded = false }
+                                ) {
+                                    customers.forEach { customer ->
+                                        DropdownMenuItem(
+                                            text = { Text(customer.name) },
+                                            onClick = {
+                                                selectedCustomerId = customer.id
+                                                expanded = false
+                                            }
+                                        )
+                                    }
                                 }
                             }
+                            
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(text = "جزئیات فنی و مالی", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            TextField(value = area, onValueChange = { area = it }, label = { Text(stringResource(R.string.infrastructure_area)) }, modifier = Modifier.fillMaxWidth())
+                            Spacer(modifier = Modifier.height(8.dp))
+                            TextField(value = priceFixture, onValueChange = { priceFixture = it }, label = { Text(stringResource(R.string.price_per_fixture)) }, modifier = Modifier.fillMaxWidth())
+                            Spacer(modifier = Modifier.height(8.dp))
+                            TextField(value = priceMeter, onValueChange = { priceMeter = it }, label = { Text(stringResource(R.string.price_per_meter)) }, modifier = Modifier.fillMaxWidth())
+                            
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(text = "مراحل پرداخت", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            TextField(value = p1, onValueChange = { p1 = it }, label = { Text(stringResource(R.string.first_payment)) }, modifier = Modifier.fillMaxWidth())
+                            Spacer(modifier = Modifier.height(8.dp))
+                            TextField(value = p2, onValueChange = { p2 = it }, label = { Text(stringResource(R.string.second_payment)) }, modifier = Modifier.fillMaxWidth())
+                            Spacer(modifier = Modifier.height(8.dp))
+                            TextField(value = p3, onValueChange = { p3 = it }, label = { Text(stringResource(R.string.third_payment)) }, modifier = Modifier.fillMaxWidth())
                         }
                     }
                 },
@@ -130,7 +166,17 @@ fun ProjectsScreen(
                     Button(
                         onClick = {
                             if (name.isNotBlank()) {
-                                viewModel.addProject(name, description, selectedCustomerId)
+                                viewModel.addProject(
+                                    name = name,
+                                    description = description,
+                                    customerId = selectedCustomerId,
+                                    area = area.toDoubleOrNull() ?: 0.0,
+                                    priceFixture = priceFixture.toLongOrNull() ?: 0L,
+                                    priceMeter = priceMeter.toLongOrNull() ?: 0L,
+                                    p1 = p1.toLongOrNull() ?: 0L,
+                                    p2 = p2.toLongOrNull() ?: 0L,
+                                    p3 = p3.toLongOrNull() ?: 0L
+                                )
                                 showDialog = false
                             }
                         },

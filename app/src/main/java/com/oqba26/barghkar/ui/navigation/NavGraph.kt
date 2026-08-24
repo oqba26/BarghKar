@@ -7,15 +7,28 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.oqba26.barghkar.ui.screens.*
+import com.oqba26.barghkar.ui.viewmodels.AuthViewModel
 
 @Composable
-fun NavGraph(navController: NavHostController) {
+fun NavGraph(
+    navController: NavHostController,
+    authViewModel: AuthViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+) {
     NavHost(
         navController = navController,
-        startDestination = Screen.Home.route
+        startDestination = Screen.Login.route
     ) {
+        composable(Screen.Login.route) {
+            LoginScreen(
+                viewModel = authViewModel
+            )
+        }
         composable(Screen.Home.route) {
-            HomeScreen()
+            HomeScreen(
+                onNavigateToProject = { projectId ->
+                    navController.navigate(Screen.ProjectDetails.createRoute(projectId))
+                }
+            )
         }
         composable(Screen.Calculators.route) {
             CalculatorsScreen(
