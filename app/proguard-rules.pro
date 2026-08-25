@@ -60,6 +60,11 @@
 -keep class * extends androidx.lifecycle.AndroidViewModel
 
 # ---------------------
+# Tink / Security Crypto
+# ---------------------
+-dontwarn com.google.errorprone.annotations.**
+
+# ---------------------
 # General
 # ---------------------
 -keepattributes SourceFile,LineNumberTable
