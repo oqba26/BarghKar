@@ -3,9 +3,18 @@
 # ============================================================
 
 # ---------------------
+# SQLCipher rules
+# ---------------------
+-keep class net.sqlcipher.** { *; }
+-keep class net.sqlcipher.database.** { *; }
+-keepclassmembers class net.sqlcipher.database.SQLiteDatabase {
+    private long mNativeHandle;
+}
+-dontwarn net.sqlcipher.**
+
+# ---------------------
 # Kotlinx Serialization
 # ---------------------
--keepattributes *Annotation*, InnerClasses
 -dontnote kotlinx.serialization.AnnotationsKt
 
 -keepclassmembers class kotlinx.serialization.json.** {
@@ -60,14 +69,16 @@
 -keep class * extends androidx.lifecycle.AndroidViewModel
 
 # ---------------------
-# Tink / Security Crypto
+# Tink / AndroidX Security rules
 # ---------------------
--dontwarn com.google.errorprone.annotations.**
+-keep class androidx.security.crypto.** { *; }
+-keep class com.google.crypto.tink.** { *; }
+-dontwarn com.google.crypto.tink.**
 
 # ---------------------
 # General
 # ---------------------
--keepattributes SourceFile,LineNumberTable
+-keepattributes SourceFile,LineNumberTable,Signature,InnerClasses,EnclosingMethod,*Annotation*
 -renamesourcefileattribute SourceFile
 
 # Remove all logs in release build
