@@ -1,7 +1,7 @@
 {
-  "versionCode": 2,
-  "versionName": "1.0.1",
-  "url": "https://github.com/oqba26/BarghKar/releases/download/v1.0.1/BarghKar-v1.0.1.apk",
-  "releaseNotes": "افزودن سیستم به‌روزرسانی خودکار؛ بهبود رابط کاربری انتخاب تاریخ؛ رفع باگ‌های گزارش شده در خروجی PDF",
+  "versionCode": 3,
+  "versionName": "1.0.2",
+  "url": "https://github.com/oqba26/BarghKar/releases/download/v1.0.2/BarghKar-v1.0.2.apk",
+  "releaseNotes": "بروزرسانی کلید امنیتی و بهبود پایداری برنامه",
   "isForceUpdate": false
 }

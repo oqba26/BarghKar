@@ -6,6 +6,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import net.sqlcipher.database.SupportFactory
 import com.oqba26.barghkar.data.local.dao.CustomerDao
 import com.oqba26.barghkar.data.local.dao.InventoryDao
 import com.oqba26.barghkar.data.local.dao.ProjectDao
@@ -97,11 +98,15 @@ abstract class AppDatabase : RoomDatabase() {
 
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
+                val passphrase = DatabaseSecurity.getPassphrase(context)
+                val factory = SupportFactory(passphrase)
+                
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "barghkar_database",
                 )
+                    .openHelperFactory(factory)
                     .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build()
                 INSTANCE = instance

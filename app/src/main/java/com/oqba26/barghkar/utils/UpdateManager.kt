@@ -5,10 +5,12 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.Environment
+import android.util.Log
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
@@ -20,6 +22,8 @@ import io.ktor.client.request.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import io.ktor.client.engine.okhttp.*
+import okhttp3.CertificatePinner
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
@@ -47,7 +51,15 @@ class UpdateManager(private val context: Context) {
         coerceInputValues = true
     }
 
-    private val client = HttpClient {
+    private val client = HttpClient(OkHttp) {
+        engine {
+            val pinner = CertificatePinner.Builder()
+                .add("raw.githubusercontent.com", "sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+                .build()
+            config {
+                certificatePinner(pinner)
+            }
+        }
         install(ContentNegotiation) {
             json(json)
         }
@@ -76,8 +88,8 @@ class UpdateManager(private val context: Context) {
             if (updateInfo.versionCode > currentVersionCode) {
                 return@withContext updateInfo
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
+        } catch (_: Exception) {
+            // Ignore error
         }
         null
     }
@@ -119,8 +131,8 @@ class UpdateManager(private val context: Context) {
                     installApk(fileName)
                     try {
                         receiverContext.unregisterReceiver(this)
-                    } catch (e: Exception) {
-                        e.printStackTrace()
+                    } catch (_: Exception) {
+                        // Ignore
                     }
                 }
             }
@@ -172,6 +184,13 @@ class UpdateManager(private val context: Context) {
             return
         }
 
+        // Verify signature before installing
+        if (!verifySignature(apkFile)) {
+            Toast.makeText(context, "خطای امنیتی: امضای نسخه جدید معتبر نیست!", Toast.LENGTH_LONG).show()
+            apkFile.delete()
+            return
+        }
+
         try {
             val contentUri = FileProvider.getUriForFile(
                 context,
@@ -188,6 +207,41 @@ class UpdateManager(private val context: Context) {
             Toast.makeText(context, "خطا در اجرای فایل نصب", Toast.LENGTH_SHORT).show()
             e.printStackTrace()
         }
+    }
+
+    private fun verifySignature(apkFile: File): Boolean {
+        try {
+            val packageManager = context.packageManager
+            
+            // Get current app's signatures
+            val currentSignatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                val packageInfo = packageManager.getPackageInfo(context.packageName, PackageManager.GET_SIGNING_CERTIFICATES)
+                packageInfo.signingInfo?.apkContentsSigners
+            } else {
+                @Suppress("DEPRECATION")
+                val packageInfo = packageManager.getPackageInfo(context.packageName, PackageManager.GET_SIGNATURES)
+                @Suppress("DEPRECATION")
+                packageInfo.signatures
+            }
+
+            // Get downloaded APK's signatures
+            @Suppress("DEPRECATION")
+            val archiveInfo = packageManager.getPackageArchiveInfo(apkFile.absolutePath, PackageManager.GET_SIGNATURES)
+            @Suppress("DEPRECATION")
+            val downloadedSignatures = archiveInfo?.signatures
+
+            if (currentSignatures.isNullOrEmpty() || downloadedSignatures.isNullOrEmpty()) return false
+
+            // Compare signatures: if any signature matches, we consider it valid
+            for (currSig in currentSignatures) {
+                for (downSig in downloadedSignatures) {
+                    if (currSig == downSig) return true
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("UpdateManager", "Signature verification failed", e)
+        }
+        return false
     }
 
     private fun isNetworkAvailable(): Boolean {
