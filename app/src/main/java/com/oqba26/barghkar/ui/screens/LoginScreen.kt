@@ -88,7 +88,7 @@ fun LoginScreen(
 
         if (error != null) {
             Text(
-                text = error!!,
+                text = error ?: "",
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
@@ -105,7 +105,7 @@ fun LoginScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp),
-            enabled = !isLoading && email.isNotBlank() && password.length >= 6
+            enabled = !isLoading && email.isNotBlank() && password.length >= 8
         ) {
             if (isLoading) {
                 CircularProgressIndicator(

@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import com.oqba26.barghkar.security.AppConfigValidator
 import java.io.File
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -44,6 +45,10 @@ data class UpdateInfo(
 class UpdateManager(private val context: Context) {
 
     private val updateUrl = "https://raw.githubusercontent.com/oqba26/BarghKar/main/update.json"
+
+    private fun isSafeUpdateSource(url: String): Boolean {
+        return AppConfigValidator.isSafeHttpsUrl(url) && url.contains("github.com", ignoreCase = true)
+    }
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -61,10 +66,15 @@ class UpdateManager(private val context: Context) {
             return@withContext null
         }
 
+        if (!isSafeUpdateSource(updateUrl)) {
+            Log.e("UpdateManager", "Blocked update check for unsafe URL: $updateUrl")
+            return@withContext null
+        }
+
         try {
             val timestamp = System.currentTimeMillis()
             val urlWithParams = if (updateUrl.contains("?")) "$updateUrl&t=$timestamp" else "$updateUrl?t=$timestamp"
-            
+
             val responseText: String = client.get(urlWithParams).bodyAsText()
             val updateInfo: UpdateInfo = json.decodeFromString(responseText)
             
@@ -86,6 +96,11 @@ class UpdateManager(private val context: Context) {
     }
 
     fun downloadAndInstall(url: String, fileName: String): Long {
+        if (!isSafeUpdateSource(url)) {
+            Toast.makeText(context, "لینک آپدیت نامعتبر است", Toast.LENGTH_LONG).show()
+            return -1L
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (!context.packageManager.canRequestPackageInstalls()) {
                 Toast.makeText(context, "لطفاً برای نصب آپدیت، اجازه نصب برنامه‌های ناشناخته را بدهید", Toast.LENGTH_LONG).show()

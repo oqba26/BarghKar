@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.oqba26.barghkar.data.InventoryRepository
 import com.oqba26.barghkar.data.local.AppDatabase
 import com.oqba26.barghkar.data.local.entity.InventoryMaterialEntity
+import com.oqba26.barghkar.security.InputValidators
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -30,8 +31,19 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun addInventoryItem(name: String, quantity: Double, unit: String) {
+        val validationError = InputValidators.validateInventory(name, quantity, unit)
+        if (validationError != null) {
+            throw IllegalArgumentException(validationError)
+        }
+
         viewModelScope.launch {
-            repository.insertInventory(InventoryMaterialEntity(name = name, quantity = quantity, unit = unit))
+            repository.insertInventory(
+                InventoryMaterialEntity(
+                    name = name.trim(),
+                    quantity = quantity,
+                    unit = unit.trim()
+                )
+            )
         }
     }
 

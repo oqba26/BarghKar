@@ -8,8 +8,26 @@ import com.oqba26.barghkar.data.model.UserRole
 import com.oqba26.barghkar.data.model.ApprenticePermission
 
 class AuthRepository {
-    private val auth = SupabaseClient.client.auth
-    private val postgrest = SupabaseClient.client.postgrest
+    private val auth get() = SupabaseClient.client.auth
+    private val postgrest get() = SupabaseClient.client.postgrest
+    private val emailRegex = Regex("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
+
+    fun validateCredentials(email: String, password: String): String? {
+        val normalizedEmail = email.trim()
+        val normalizedPassword = password.trim()
+
+        if (normalizedEmail.isBlank()) return "ایمیل نمی‌تواند خالی باشد"
+        if (!emailRegex.matches(normalizedEmail)) return "فرمت ایمیل معتبر نیست"
+        if (normalizedPassword.length < 8) return "رمز عبور باید حداقل 8 کاراکتر باشد"
+        return null
+    }
+
+    fun validateApprenticeEmail(email: String): String? {
+        val normalizedEmail = email.trim()
+        if (normalizedEmail.isBlank()) return "ایمیل شاگرد نمی‌تواند خالی باشد"
+        if (!emailRegex.matches(normalizedEmail)) return "فرمت ایمیل شاگرد معتبر نیست"
+        return null
+    }
 
     suspend fun getUserProfile(): UserProfile? {
         val user = auth.currentUserOrNull() ?: return null
@@ -38,21 +56,48 @@ class AuthRepository {
     }
 
     suspend fun addApprenticeByEmail(apprenticeEmail: String) {
-        val apprenticeProfile = postgrest["profiles"].select {
-            filter {
-                eq("email", apprenticeEmail)
-            }
-        }.decodeSingleOrNull<UserProfile>() ?: throw Exception("کاربری با این ایمیل پیدا نشد")
+        val normalizedEmail = apprenticeEmail.trim()
+        val validationError = validateApprenticeEmail(normalizedEmail)
+        if (validationError != null) throw IllegalArgumentException(validationError)
 
-        if ((apprenticeProfile.role == UserRole.APPRENTICE) && (apprenticeProfile.masterId != null)) {
-            throw Exception("این کاربر در حال حاضر شاگرد شخص دیگری است")
+        val currentUser = auth.currentUserOrNull() ?: throw IllegalStateException("کاربر واردشده‌ای پیدا نشد")
+        val currentUserProfile = postgrest["profiles"].select {
+            filter {
+                eq("id", currentUser.id)
+            }
+        }.decodeSingleOrNull<UserProfile>()
+
+        if (currentUserProfile?.role == UserRole.APPRENTICE) {
+            throw IllegalStateException("کاربر شاگرد نمی‌تواند شاگرد جدید اضافه کند")
         }
 
-        val currentId = auth.currentUserOrNull()?.id ?: return
-        
+        if (currentUser.email?.trim()?.equals(normalizedEmail, ignoreCase = true) == true) {
+            throw IllegalArgumentException("شما نمی‌توانید خودتان را به عنوان شاگرد اضافه کنید")
+        }
+
+        val apprenticeProfiles = postgrest["profiles"].select {
+            filter {
+                eq("email", normalizedEmail)
+            }
+        }.decodeList<UserProfile>()
+
+        if (apprenticeProfiles.isEmpty()) {
+            throw IllegalArgumentException("کاربری با این ایمیل پیدا نشد")
+        }
+
+        val apprenticeProfile = apprenticeProfiles.first()
+        if (apprenticeProfile.id == currentUser.id) {
+            throw IllegalArgumentException("شما نمی‌توانید خودتان را به عنوان شاگرد اضافه کنید")
+        }
+
+        if (apprenticeProfile.role == UserRole.APPRENTICE && apprenticeProfile.masterId != null && apprenticeProfile.masterId != currentUser.id) {
+            throw IllegalArgumentException("این کاربر در حال حاضر شاگرد شخص دیگری است")
+        }
+
         postgrest["profiles"].update({
-            UserProfile::masterId setTo currentId
+            UserProfile::masterId setTo currentUser.id
             UserProfile::role setTo UserRole.APPRENTICE
+            UserProfile::permissions setTo emptyList()
         }) {
             filter {
                 eq("id", apprenticeProfile.id)
@@ -97,16 +142,22 @@ class AuthRepository {
     }
 
     suspend fun signUp(email: String, password: String) {
+        val error = validateCredentials(email, password)
+        if (error != null) throw IllegalArgumentException(error)
+
         auth.signUpWith(Email) {
-            this.email = email
-            this.password = password
+            this.email = email.trim()
+            this.password = password.trim()
         }
     }
 
     suspend fun signIn(email: String, password: String) {
+        val error = validateCredentials(email, password)
+        if (error != null) throw IllegalArgumentException(error)
+
         auth.signInWith(Email) {
-            this.email = email
-            this.password = password
+            this.email = email.trim()
+            this.password = password.trim()
         }
         
         // چک کردن تاییدیه ایمیل بلافاصله بعد از ورود
@@ -125,5 +176,5 @@ class AuthRepository {
         auth.signOut()
     }
 
-    val sessionStatus = auth.sessionStatus
+    val sessionStatus get() = auth.sessionStatus
 }

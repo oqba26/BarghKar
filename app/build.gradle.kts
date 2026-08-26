@@ -16,8 +16,8 @@ android {
         applicationId = "com.oqba26.barghkar"
         minSdk = 24
         targetSdk = 35
-        versionCode = 9
-        versionName = "1.0.8"
+        versionCode = 10
+        versionName = "1.0.9"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -31,9 +31,9 @@ android {
         
         val supabaseUrl = System.getenv("SUPABASE_URL") ?: localProperties.getProperty("SUPABASE_URL") ?: ""
         val supabaseKey = System.getenv("SUPABASE_KEY") ?: localProperties.getProperty("SUPABASE_KEY") ?: ""
-        
-        buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
-        buildConfigField("String", "SUPABASE_KEY", "\"$supabaseKey\"")
+
+        buildConfigField("String", "SUPABASE_URL", "\"${supabaseUrl.trim()}\"")
+        buildConfigField("String", "SUPABASE_KEY", "\"${supabaseKey.trim()}\"")
     }
 
     signingConfigs {
@@ -47,6 +47,18 @@ android {
 
     buildTypes {
         release {
+            val isReleaseTask = gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }
+            if (isReleaseTask) {
+                val releaseStoreFile = System.getenv("RELEASE_STORE_FILE")
+                val releaseStorePassword = System.getenv("RELEASE_STORE_PASSWORD")
+                val releaseKeyAlias = System.getenv("RELEASE_KEY_ALIAS")
+                val releaseKeyPassword = System.getenv("RELEASE_KEY_PASSWORD")
+
+                if (releaseStoreFile.isNullOrBlank() || releaseStorePassword.isNullOrBlank() || releaseKeyAlias.isNullOrBlank() || releaseKeyPassword.isNullOrBlank()) {
+                    throw GradleException("Release signing environment is incomplete. Define RELEASE_STORE_FILE, RELEASE_STORE_PASSWORD, RELEASE_KEY_ALIAS, and RELEASE_KEY_PASSWORD.")
+                }
+            }
+
             isMinifyEnabled = true
             isShrinkResources = true
             signingConfig = signingConfigs.getByName("release")
@@ -66,8 +78,8 @@ android {
     }
 
     lint {
-        checkReleaseBuilds = false
-        abortOnError = false
+        checkReleaseBuilds = true
+        abortOnError = true
     }
 }
 

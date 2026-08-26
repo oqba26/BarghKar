@@ -165,17 +165,26 @@ fun ProjectsScreen(
                 confirmButton = {
                     Button(
                         onClick = {
-                            if (name.isNotBlank()) {
+                            val cleanName = name.trim()
+                            val cleanDescription = description.trim()
+                            val parsedArea = area.toDoubleOrNull() ?: 0.0
+                            val parsedFixture = priceFixture.toLongOrNull() ?: 0L
+                            val parsedMeter = priceMeter.toLongOrNull() ?: 0L
+                            val parsedP1 = p1.toLongOrNull() ?: 0L
+                            val parsedP2 = p2.toLongOrNull() ?: 0L
+                            val parsedP3 = p3.toLongOrNull() ?: 0L
+
+                            if (cleanName.isNotBlank() && cleanDescription.isNotBlank()) {
                                 viewModel.addProject(
-                                    name = name,
-                                    description = description,
+                                    name = cleanName,
+                                    description = cleanDescription,
                                     customerId = selectedCustomerId,
-                                    area = area.toDoubleOrNull() ?: 0.0,
-                                    priceFixture = priceFixture.toLongOrNull() ?: 0L,
-                                    priceMeter = priceMeter.toLongOrNull() ?: 0L,
-                                    p1 = p1.toLongOrNull() ?: 0L,
-                                    p2 = p2.toLongOrNull() ?: 0L,
-                                    p3 = p3.toLongOrNull() ?: 0L
+                                    area = parsedArea,
+                                    priceFixture = parsedFixture,
+                                    priceMeter = parsedMeter,
+                                    p1 = parsedP1,
+                                    p2 = parsedP2,
+                                    p3 = parsedP3
                                 )
                                 showDialog = false
                             }

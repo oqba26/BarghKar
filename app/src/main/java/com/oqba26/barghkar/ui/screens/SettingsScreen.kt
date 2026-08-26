@@ -30,8 +30,8 @@ fun SettingsScreen(
     authViewModel: AuthViewModel = viewModel(),
 ) {
     val context = LocalContext.current
-    val settingsManager = (context.applicationContext as BarghKarApp).settingsManager
-    val selectedFont by settingsManager.selectedFont.collectAsState()
+    val settingsManager = (context.applicationContext as? BarghKarApp)?.settingsManager
+    val selectedFont by settingsManager?.selectedFont?.collectAsState() ?: remember { mutableStateOf(AppFont.Estedad) }
     val userProfile by authViewModel.userProfile.collectAsState()
     val apprentices by authViewModel.apprentices.collectAsState()
     var expanded by remember { mutableStateOf(value = false) }
@@ -58,17 +58,39 @@ fun SettingsScreen(
             }
             
             // بخش مدیریت تیم (برای اوستا)
-            if (userProfile?.role == UserRole.MASTER) {
-                item {
-                    TeamManagementSection(
-                        apprentices = apprentices,
-                        onAddApprentice = { authViewModel.addApprentice(it) },
-                        onUpdatePermissions = { id, perms -> authViewModel.updateApprenticePermissions(id, perms) }
-                    ) { authViewModel.removeApprentice(it) }
+            when (userProfile?.role) {
+                UserRole.MASTER -> {
+                    item {
+                        TeamManagementSection(
+                            apprentices = apprentices,
+                            onAddApprentice = { authViewModel.addApprentice(it) },
+                            onUpdatePermissions = { id, perms ->
+                                authViewModel.updateApprenticePermissions(
+                                    id,
+                                    perms
+                                )
+                            }
+                        ) { authViewModel.removeApprentice(it) }
+                    }
                 }
-            } else if (userProfile?.role == UserRole.APPRENTICE) {
-                item {
-                    ApprenticeStatusSection(userProfile = userProfile!!)
+                UserRole.APPRENTICE -> {
+                    item {
+                        val profile = userProfile
+                        if (profile != null) {
+                            ApprenticeStatusSection(userProfile = profile)
+                        }
+                    }
+                }
+                else -> {
+                    // نمایش نقش فعلی در صورت عدم نمایش بخش مدیریت (برای عیب‌یابی)
+                    item {
+                        Text(
+                            text = "نقش کاربری فعلی: ${userProfile?.role ?: "در حال بارگذاری..."}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.Gray,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
                 }
             }
 
@@ -111,7 +133,7 @@ fun SettingsScreen(
                                     )
                                 },
                                 onClick = {
-                                    settingsManager.setSelectedFont(font)
+                                    settingsManager?.setSelectedFont(font)
                                     expanded = false
                                 },
                                 contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
@@ -168,9 +190,11 @@ fun TeamManagementSection(
                 modifier = Modifier.fillMaxWidth(),
                 trailingIcon = {
                     IconButton(
+                        enabled = apprenticeEmail.trim().isNotBlank(),
                         onClick = {
-                            if (apprenticeEmail.isNotBlank()) {
-                                onAddApprentice(apprenticeEmail)
+                            val normalizedEmail = apprenticeEmail.trim()
+                            if (normalizedEmail.isNotBlank()) {
+                                onAddApprentice(normalizedEmail)
                                 apprenticeEmail = ""
                             }
                         }

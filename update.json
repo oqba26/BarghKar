@@ -1,7 +1,7 @@
 {
-  "versionCode": 9,
-  "versionName": "1.0.8",
-  "url": "https://github.com/oqba26/BarghKar/releases/download/v1.0.8/BarghKar-v1.0.8.apk",
-  "releaseNotes": "رفع مشکل سیستم آپدیت و بهبود پایداری برنامه",
+  "versionCode": 10,
+  "versionName": "1.0.9",
+  "url": "https://github.com/oqba26/BarghKar/releases/download/v1.0.9/BarghKar-v1.0.9.apk",
+  "releaseNotes": "بهبود اعتبارسنجی ورودی‌ها، افزایش امنیت پایه و اصلاح رفتارهای حساس در تنظیمات و آپدیت برنامه",
   "isForceUpdate": false
 }

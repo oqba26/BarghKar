@@ -181,9 +181,11 @@ fun InventoryScreen(
                 confirmButton = {
                     Button(
                         onClick = {
+                            val cleanName = name.trim()
+                            val cleanUnit = unit.trim()
                             val q = quantity.toDoubleOrNull() ?: 0.0
-                            if (name.isNotBlank() && q > 0) {
-                                viewModel.addInventoryItem(name, q, unit)
+                            if (cleanName.isNotBlank() && cleanUnit.isNotBlank() && q > 0) {
+                                viewModel.addInventoryItem(cleanName, q, cleanUnit)
                                 showDialog = false
                             }
                         }

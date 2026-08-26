@@ -170,11 +170,13 @@ fun MaterialsTab(
             }
         }
 
-        FloatingActionButton(
-            onClick = { showDialog = true },
-            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
-        ) {
-            Icon(Icons.Default.Add, contentDescription = null)
+        if (isMaster) {
+            FloatingActionButton(
+                onClick = { showDialog = true },
+                modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null)
+            }
         }
     }
 
@@ -303,11 +305,13 @@ fun MaterialsTab(
             },
             confirmButton = {
                 Button(onClick = {
+                    val cleanName = name.trim()
+                    val cleanUnit = unit.trim()
                     val q = quantity.toIntOrNull() ?: 0
                     val p = price.toLongOrNull() ?: 0L
-                    if (name.isNotBlank() && (q > 0)) {
+                    if (cleanName.isNotBlank() && cleanUnit.isNotBlank() && q > 0 && p >= 0L) {
                         val status = if (isMaster) RecordStatus.APPROVED else RecordStatus.PENDING
-                        viewModel.addMaterial(projectId, name, q, unit, p, status)
+                        viewModel.addMaterial(projectId, cleanName, q, cleanUnit, p, status)
                         showDialog = false
                     }
                 }) { Text(stringResource(R.string.confirm)) }
@@ -390,11 +394,13 @@ fun InstallmentsTab(
             }
         }
 
-        FloatingActionButton(
-            onClick = { showDialog = true },
-            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
-        ) {
-            Icon(Icons.Default.Add, contentDescription = null)
+        if (isMaster) {
+            FloatingActionButton(
+                onClick = { showDialog = true },
+                modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null)
+            }
         }
     }
 
@@ -428,8 +434,8 @@ fun InstallmentsTab(
             },
             confirmButton = {
                 Button(onClick = {
-                    val a = amount.toLongOrNull() ?: 0L
-                    if (a > 0) {
+                    val a = amount.trim().toLongOrNull() ?: 0L
+                    if (a > 0L) {
                         val status = if (isMaster) RecordStatus.APPROVED else RecordStatus.PENDING
                         viewModel.addInstallment(projectId, a, selectedDate, status)
                         showDialog = false

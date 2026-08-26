@@ -7,6 +7,7 @@ import com.oqba26.barghkar.data.CustomerRepository
 import com.oqba26.barghkar.data.local.AppDatabase
 import com.oqba26.barghkar.data.local.entity.CustomerEntity
 import com.oqba26.barghkar.data.local.entity.ProjectEntity
+import com.oqba26.barghkar.security.InputValidators
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -31,8 +32,19 @@ class CustomerViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun addCustomer(name: String, phoneNumber: String, address: String) {
+        val validationError = InputValidators.validateCustomer(name, phoneNumber, address)
+        if (validationError != null) {
+            throw IllegalArgumentException(validationError)
+        }
+
         viewModelScope.launch {
-            repository.insertCustomer(CustomerEntity(name = name, phoneNumber = phoneNumber, address = address))
+            repository.insertCustomer(
+                CustomerEntity(
+                    name = name.trim(),
+                    phoneNumber = phoneNumber.trim(),
+                    address = address.trim()
+                )
+            )
         }
     }
 

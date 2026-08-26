@@ -87,6 +87,11 @@ class AuthViewModel(private val repository: AuthRepository = AuthRepository()) :
             _isLoading.value = true
             _error.value = null
             try {
+                val validationError = repository.validateCredentials(email, password)
+                if (validationError != null) {
+                    _error.value = validationError
+                    return@launch
+                }
                 repository.signUp(email, password)
             } catch (e: Exception) {
                 _error.value = e.message ?: "خطا در ثبت‌نام"
@@ -101,6 +106,11 @@ class AuthViewModel(private val repository: AuthRepository = AuthRepository()) :
             _isLoading.value = true
             _error.value = null
             try {
+                val validationError = repository.validateCredentials(email, password)
+                if (validationError != null) {
+                    _error.value = validationError
+                    return@launch
+                }
                 repository.signIn(email, password)
             } catch (e: Exception) {
                 _error.value = e.message ?: "خطا در ورود"
@@ -125,6 +135,11 @@ class AuthViewModel(private val repository: AuthRepository = AuthRepository()) :
             _isLoading.value = true
             _error.value = null
             try {
+                val validationError = repository.validateApprenticeEmail(email)
+                if (validationError != null) {
+                    _error.value = validationError
+                    return@launch
+                }
                 repository.addApprenticeByEmail(email)
                 fetchApprentices()
             } catch (e: Exception) {

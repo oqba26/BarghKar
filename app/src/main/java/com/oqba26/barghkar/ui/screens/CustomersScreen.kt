@@ -94,8 +94,11 @@ fun CustomersScreen(
                 },
                 confirmButton = {
                     Button(onClick = {
-                        if (name.isNotBlank()) {
-                            viewModel.addCustomer(name, phone, address)
+                        val cleanName = name.trim()
+                        val cleanPhone = phone.trim()
+                        val cleanAddress = address.trim()
+                        if (cleanName.isNotBlank() && cleanPhone.length >= 8 && cleanAddress.isNotBlank()) {
+                            viewModel.addCustomer(cleanName, cleanPhone, cleanAddress)
                             showDialog = false
                         }
                     }) {

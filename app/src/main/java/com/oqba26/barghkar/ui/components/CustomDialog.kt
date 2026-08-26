@@ -53,9 +53,9 @@ fun CustomDialog(
                                 .padding(horizontal = 16.dp, vertical = 12.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)
                         ) {
-                            // Buttons row
-                            dismissButton()
+                            // Buttons row: Confirm on Right (Start), Dismiss on Left (End) in RTL
                             confirmButton()
+                            dismissButton()
                         }
                     }
                 }

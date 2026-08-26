@@ -8,6 +8,7 @@ import com.oqba26.barghkar.data.local.AppDatabase
 import com.oqba26.barghkar.data.local.entity.InstallmentEntity
 import com.oqba26.barghkar.data.local.entity.MaterialEntity
 import com.oqba26.barghkar.data.local.entity.ProjectEntity
+import com.oqba26.barghkar.security.InputValidators
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -31,9 +32,9 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun addProject(
-        name: String, 
-        description: String, 
-        customerId: Long? = null, 
+        name: String,
+        description: String,
+        customerId: Long? = null,
         totalWage: Long = 0L,
         area: Double = 0.0,
         priceFixture: Long = 0L,
@@ -42,19 +43,26 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
         p2: Long = 0L,
         p3: Long = 0L
     ) {
+        val validationError = InputValidators.validateProject(name, description, area, priceFixture, priceMeter, p1, p2, p3)
+        if (validationError != null) {
+            throw IllegalArgumentException(validationError)
+        }
+
         viewModelScope.launch {
-            repository.insertProject(ProjectEntity(
-                name = name, 
-                description = description, 
-                customerId = customerId, 
-                totalWage = totalWage,
-                infrastructureArea = area,
-                pricePerFixture = priceFixture,
-                pricePerMeter = priceMeter,
-                firstPayment = p1,
-                secondPayment = p2,
-                thirdPayment = p3
-            ))
+            repository.insertProject(
+                ProjectEntity(
+                    name = name.trim(),
+                    description = description.trim(),
+                    customerId = customerId,
+                    totalWage = totalWage,
+                    infrastructureArea = area,
+                    pricePerFixture = priceFixture,
+                    pricePerMeter = priceMeter,
+                    firstPayment = p1,
+                    secondPayment = p2,
+                    thirdPayment = p3
+                )
+            )
         }
     }
 
@@ -81,8 +89,22 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun addMaterial(projectId: Long, name: String, quantity: Int, unit: String, pricePerUnit: Long = 0L, status: com.oqba26.barghkar.data.model.RecordStatus = com.oqba26.barghkar.data.model.RecordStatus.APPROVED) {
+        val validationError = InputValidators.validateMaterial(name, quantity, unit, pricePerUnit)
+        if (validationError != null) {
+            throw IllegalArgumentException(validationError)
+        }
+
         viewModelScope.launch {
-            repository.insertMaterial(MaterialEntity(projectId = projectId, name = name, quantity = quantity, unit = unit, pricePerUnit = pricePerUnit, status = status))
+            repository.insertMaterial(
+                MaterialEntity(
+                    projectId = projectId,
+                    name = name.trim(),
+                    quantity = quantity,
+                    unit = unit.trim(),
+                    pricePerUnit = pricePerUnit,
+                    status = status
+                )
+            )
         }
     }
 
@@ -109,6 +131,11 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun addInstallment(projectId: Long, amount: Long, dueDate: Long, status: com.oqba26.barghkar.data.model.RecordStatus = com.oqba26.barghkar.data.model.RecordStatus.APPROVED) {
+        val validationError = InputValidators.validateInstallment(amount)
+        if (validationError != null) {
+            throw IllegalArgumentException(validationError)
+        }
+
         viewModelScope.launch {
             repository.insertInstallment(InstallmentEntity(projectId = projectId, amount = amount, dueDate = dueDate, status = status))
         }

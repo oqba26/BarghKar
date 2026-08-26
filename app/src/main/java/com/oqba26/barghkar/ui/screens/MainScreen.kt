@@ -123,13 +123,13 @@ fun MainScreen(
                 title = { Text("خروج از برنامه") },
                 text = { Text("آیا مطمئن هستید که می‌خواهید از برنامه خارج شوید؟") },
                 confirmButton = {
-                    Button(onClick = { (context as? Activity)?.finish() }) {
-                        Text("بله، خروج")
+                    TextButton(onClick = { showExitDialog = false }) {
+                        Text("انصراف")
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showExitDialog = false }) {
-                        Text("انصراف")
+                    Button(onClick = { (context as? Activity)?.finish() }) {
+                        Text("تایید")
                     }
                 }
             )

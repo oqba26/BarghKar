@@ -3,16 +3,31 @@ package com.oqba26.barghkar.data
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 import com.oqba26.barghkar.ui.theme.AppFont
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 class SettingsManager(context: Context) {
-    private val sharedPreferences: SharedPreferences =
-        context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+    private val sharedPreferences: SharedPreferences = createEncryptedPrefs(context)
 
     private val _selectedFont = MutableStateFlow(getSelectedFont())
     val selectedFont: StateFlow<AppFont> = _selectedFont
+
+    private fun createEncryptedPrefs(context: Context): SharedPreferences {
+        val masterKey = MasterKey.Builder(context)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+
+        return EncryptedSharedPreferences.create(
+            context,
+            "app_settings_secure",
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    }
 
     fun getSelectedFont(): AppFont {
         val fontName = sharedPreferences.getString("selected_font", AppFont.Estedad.name)
