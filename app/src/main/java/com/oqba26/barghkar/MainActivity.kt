@@ -20,10 +20,19 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.milliseconds
 
+import io.github.jan.supabase.auth.handleDeeplinks
+import android.content.Intent
+import com.oqba26.barghkar.data.remote.SupabaseClient
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val settingsManager = (application as BarghKarApp).settingsManager
+
+        // هندل کردن دیپ‌لینک برای تایید ایمیل
+        intent?.let {
+            SupabaseClient.client.handleDeeplinks(it)
+        }
         
         // پاکسازی فایل‌های APK قدیمی
         val updateManager = UpdateManager(this)

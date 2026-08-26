@@ -1,7 +1,7 @@
 {
-  "versionCode": 6,
-  "versionName": "1.0.5",
-  "url": "https://github.com/oqba26/BarghKar/releases/download/v1.0.5/BarghKar-v1.0.5.apk",
-  "releaseNotes": "تایید نهایی اتصال امن به دیتابیس و رفع کامل مشکل لوکال‌هاست",
+  "versionCode": 7,
+  "versionName": "1.0.6",
+  "url": "https://github.com/oqba26/BarghKar/releases/download/v1.0.6/BarghKar-v1.0.6.apk",
+  "releaseNotes": "افزودن قابلیت تایید ایمیل از طریق Deep Link و بهبود امنیت ورود",
   "isForceUpdate": true
 }
