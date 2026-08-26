@@ -23,7 +23,6 @@ import io.ktor.serialization.kotlinx.json.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import io.ktor.client.engine.okhttp.*
-import okhttp3.CertificatePinner
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
@@ -52,14 +51,6 @@ class UpdateManager(private val context: Context) {
     }
 
     private val client = HttpClient(OkHttp) {
-        engine {
-            val pinner = CertificatePinner.Builder()
-                .add("raw.githubusercontent.com", "sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
-                .build()
-            config {
-                certificatePinner(pinner)
-            }
-        }
         install(ContentNegotiation) {
             json(json)
         }
@@ -88,8 +79,8 @@ class UpdateManager(private val context: Context) {
             if (updateInfo.versionCode > currentVersionCode) {
                 return@withContext updateInfo
             }
-        } catch (_: Exception) {
-            // Ignore error
+        } catch (e: Exception) {
+            Log.e("UpdateManager", "خطا در بررسی آپدیت", e)
         }
         null
     }
