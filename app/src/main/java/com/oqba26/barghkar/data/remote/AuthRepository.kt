@@ -12,14 +12,27 @@ class AuthRepository {
     private val postgrest = SupabaseClient.client.postgrest
 
     suspend fun getUserProfile(): UserProfile? {
-        val id = auth.currentUserOrNull()?.id ?: return null
+        val user = auth.currentUserOrNull() ?: return null
         return try {
-            postgrest["profiles"].select {
+            val profile = postgrest["profiles"].select {
                 filter {
-                    eq("id", id)
+                    eq("id", user.id)
                 }
             }.decodeSingleOrNull<UserProfile>()
-        } catch (_: Exception) {
+
+            if (profile == null) {
+                val newProfile = UserProfile(
+                    id = user.id,
+                    email = user.email,
+                    role = UserRole.MASTER
+                )
+                postgrest["profiles"].insert(newProfile)
+                newProfile
+            } else {
+                profile
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
             null
         }
     }
@@ -31,7 +44,7 @@ class AuthRepository {
             }
         }.decodeSingleOrNull<UserProfile>() ?: throw Exception("کاربری با این ایمیل پیدا نشد")
 
-        if ((apprenticeProfile.role == UserRole.MASTER) && (apprenticeProfile.masterId != null)) {
+        if ((apprenticeProfile.role == UserRole.APPRENTICE) && (apprenticeProfile.masterId != null)) {
             throw Exception("این کاربر در حال حاضر شاگرد شخص دیگری است")
         }
 
@@ -40,7 +53,7 @@ class AuthRepository {
         postgrest["profiles"].update({
             UserProfile::masterId setTo currentId
             UserProfile::role setTo UserRole.APPRENTICE
-        },) {
+        }) {
             filter {
                 eq("id", apprenticeProfile.id)
             }
@@ -52,7 +65,7 @@ class AuthRepository {
         return try {
             postgrest["profiles"].select {
                 filter {
-                    eq("masterId", currentId)
+                    eq("master_id", currentId)
                 }
             }.decodeList<UserProfile>()
         } catch (e: Exception) {
