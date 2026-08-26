@@ -1,7 +1,7 @@
 {
-  "versionCode": 4,
-  "versionName": "1.0.3",
-  "url": "https://github.com/oqba26/BarghKar/releases/download/v1.0.3/BarghKar-v1.0.3.apk",
-  "releaseNotes": "رفع مشکل بسته شدن ناگهانی برنامه در نسخه ریلیز (اصلاح قوانین ProGuard)",
+  "versionCode": 5,
+  "versionName": "1.0.4",
+  "url": "https://github.com/oqba26/BarghKar/releases/download/v1.0.4/BarghKar-v1.0.4.apk",
+  "releaseNotes": "رفع مشکل اتصال به سرور در نسخه ریلیز (افزودن متغیرهای محیطی)",
   "isForceUpdate": true
 }
