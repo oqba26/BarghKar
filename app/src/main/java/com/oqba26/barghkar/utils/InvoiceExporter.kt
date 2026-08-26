@@ -15,6 +15,8 @@ import androidx.core.graphics.withTranslation
 import com.oqba26.barghkar.R
 import com.oqba26.barghkar.data.local.entity.MaterialEntity
 import com.oqba26.barghkar.data.local.entity.ProjectEntity
+import saman.zamani.persiandate.PersianDate
+import saman.zamani.persiandate.PersianDateFormat
 import java.io.File
 import java.io.FileOutputStream
 import java.text.NumberFormat
@@ -26,9 +28,14 @@ object InvoiceExporter {
         return NumberFormat.getInstance(Locale("fa", "IR")).format(amount)
     }
 
+    private fun getCurrentDate(): String {
+        return PersianDateFormat("yyyy/MM/dd").format(PersianDate())
+    }
+
     fun generateTextInvoice(project: ProjectEntity, materials: List<MaterialEntity>): String {
         val sb = StringBuilder()
         sb.append("فاکتور پروژه: ${project.name}\n")
+        sb.append("تاریخ: ${getCurrentDate()}\n")
         sb.append("توضیحات: ${project.description}\n")
         sb.append("---------------------------\n")
         var totalMaterial = 0L
@@ -72,6 +79,8 @@ object InvoiceExporter {
         val contentWidth = pageWidth - (2 * margin).toInt()
 
         drawRtlText(canvas, "فاکتور پروژه: ${project.name}", margin, y, contentWidth, textPaint)
+        y += 30f
+        drawRtlText(canvas, "تاریخ: ${getCurrentDate()}", margin, y, contentWidth, textPaint)
         y += 40f
         
         drawRtlText(canvas, "توضیحات: ${project.description}", margin, y, contentWidth, textPaint)

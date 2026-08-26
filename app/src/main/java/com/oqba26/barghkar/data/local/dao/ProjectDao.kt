@@ -52,4 +52,10 @@ interface ProjectDao {
 
     @Update
     suspend fun updateProject(project: ProjectEntity)
+
+    @Query("SELECT * FROM installments")
+    fun getAllInstallments(): Flow<List<InstallmentEntity>>
+
+    @Query("SELECT * FROM materials")
+    fun getAllMaterials(): Flow<List<MaterialEntity>>
 }

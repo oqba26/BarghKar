@@ -4,9 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.ElectricBolt
 import androidx.compose.material.icons.filled.FlashlightOff
 import androidx.compose.material.icons.filled.FlashlightOn
@@ -17,7 +15,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -25,17 +22,24 @@ import androidx.compose.ui.res.stringResource
 import com.oqba26.barghkar.R
 import com.oqba26.barghkar.ui.viewmodels.ProjectViewModel
 import com.oqba26.barghkar.ui.viewmodels.UtilityViewModel
+import com.oqba26.barghkar.ui.viewmodels.HomeViewModel
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import java.text.NumberFormat
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     onNavigateToProject: (Long) -> Unit,
     utilityViewModel: UtilityViewModel = viewModel(),
-    projectViewModel: ProjectViewModel = viewModel()
+    projectViewModel: ProjectViewModel = viewModel(),
+    homeViewModel: HomeViewModel = viewModel()
 ) {
     val projects by projectViewModel.allProjects.collectAsState()
+    val income by homeViewModel.monthlyIncome.collectAsState()
+    val profit by homeViewModel.monthlyProfit.collectAsState()
+    val inventoryCount by homeViewModel.inventoryCount.collectAsState()
     
     Scaffold(
         topBar = {
@@ -45,6 +49,15 @@ fun HomeScreen(
                         stringResource(R.string.app_title),
                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                     ) 
+                },
+                actions = {
+                    IconButton(onClick = { utilityViewModel.toggleFlashlight() }) {
+                        Icon(
+                            imageVector = if (utilityViewModel.isFlashlightOn) Icons.Default.FlashlightOn else Icons.Default.FlashlightOff,
+                            contentDescription = stringResource(R.string.flashlight),
+                            tint = if (utilityViewModel.isFlashlightOn) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
@@ -64,6 +77,15 @@ fun HomeScreen(
             // Header Section
             item {
                 HomeHeader()
+            }
+
+            // Summary Section
+            item {
+                SummarySection(
+                    income = income,
+                    profit = profit,
+                    inventoryCount = inventoryCount
+                )
             }
             
             // Recent Projects Section
@@ -100,36 +122,61 @@ fun HomeScreen(
                 }
             }
 
-            // Quick Tools Grid Title
-            item {
-                Text(
-                    text = stringResource(R.string.quick_tools),
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    modifier = Modifier.padding(horizontal = 4.dp)
-                )
-            }
-
-            // Flashlight Section
-            item {
-                FlashlightCard(
-                    isOn = utilityViewModel.isFlashlightOn,
-                    onClick = { utilityViewModel.toggleFlashlight() }
-                )
-            }
-
-            // Unit Converter Section
-            item {
-                UnitConverterCard(
-                    awgValue = utilityViewModel.awgValue,
-                    mm2Value = utilityViewModel.mm2Value,
-                    onAwgChange = { utilityViewModel.onAwgChange(it) }
-                )
-            }
-            
             // Info Card
             item {
                 InfoCard()
             }
+        }
+    }
+}
+
+@Composable
+fun SummarySection(income: Long, profit: Long, inventoryCount: Int) {
+    val formatter = NumberFormat.getInstance(Locale("fa", "IR"))
+    
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            SummaryCard(
+                title = "درآمد ماه",
+                value = "${formatter.format(income)} تومان",
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                modifier = Modifier.weight(1f)
+            )
+            SummaryCard(
+                title = "سود ماه",
+                value = "${formatter.format(profit)} تومان",
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                modifier = Modifier.weight(1f)
+            )
+        }
+        SummaryCard(
+            title = "موجودی کالاها",
+            value = "$inventoryCount مورد در انبار",
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+@Composable
+fun SummaryCard(
+    title: String,
+    value: String,
+    containerColor: androidx.compose.ui.graphics.Color,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = containerColor)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(text = title, style = MaterialTheme.typography.labelMedium)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(text = value, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
         }
     }
 }
@@ -176,111 +223,6 @@ fun HomeHeader() {
                 .offset(x = 10.dp, y = 10.dp),
             tint = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f)
         )
-    }
-}
-
-@Composable
-fun FlashlightCard(isOn: Boolean, onClick: () -> Unit) {
-    ElevatedCard(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = if (isOn) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .padding(20.dp)
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = if (isOn) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f),
-                modifier = Modifier.size(56.dp)
-            ) {
-                Icon(
-                    imageVector = if (isOn) Icons.Default.FlashlightOn else Icons.Default.FlashlightOff,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .padding(12.dp)
-                        .fillMaxSize(),
-                    tint = if (isOn) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.flashlight),
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                )
-                Text(
-                    text = if (isOn) stringResource(R.string.flashlight_on) else stringResource(R.string.flashlight_off),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun UnitConverterCard(
-    awgValue: String,
-    mm2Value: String,
-    onAwgChange: (String) -> Unit
-) {
-    ElevatedCard(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.Bolt,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = stringResource(R.string.wire_unit_converter),
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                OutlinedTextField(
-                    value = awgValue,
-                    onValueChange = onAwgChange,
-                    label = { Text("AWG") },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    singleLine = true
-                )
-                OutlinedTextField(
-                    value = mm2Value,
-                    onValueChange = { },
-                    readOnly = true,
-                    label = { Text("mm²") },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.secondary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f)
-                    ),
-                    singleLine = true
-                )
-            }
-        }
     }
 }
 

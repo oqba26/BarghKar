@@ -22,8 +22,9 @@ import com.oqba26.barghkar.ui.components.CustomDialog
 import com.oqba26.barghkar.ui.viewmodels.AuthViewModel
 import com.oqba26.barghkar.ui.viewmodels.ProjectViewModel
 import com.oqba26.barghkar.utils.InvoiceExporter
+import saman.zamani.persiandate.PersianDate
+import saman.zamani.persiandate.PersianDateFormat
 import java.text.NumberFormat
-import java.text.SimpleDateFormat
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -31,7 +32,7 @@ import java.util.*
 fun MaterialListScreen(
     projectId: Long,
     projectViewModel: ProjectViewModel = viewModel(),
-    authViewModel: AuthViewModel = viewModel()
+    authViewModel: AuthViewModel = viewModel(),
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     val project = projectViewModel.allProjects.collectAsState().value.find { it.id == projectId }
@@ -183,7 +184,7 @@ fun MaterialsTab(
         var unit by remember { mutableStateOf("عدد") }
         var price by remember { mutableStateOf("") }
         
-        var nameExpanded by remember { mutableStateOf(false) }
+        var nameExpanded by remember { mutableStateOf(value = false) }
         var unitExpanded by remember { mutableStateOf(false) }
 
         val filteredItems = remember(name) {
@@ -357,7 +358,7 @@ fun InstallmentsTab(
                                 Text(text = "${formatPrice(installment.amount)} تومان", style = MaterialTheme.typography.titleMedium)
                             }
                             Text(
-                                text = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(Date(installment.dueDate)),
+                                text = PersianDateFormat("yyyy/MM/dd").format(PersianDate(installment.dueDate)),
                                 style = MaterialTheme.typography.bodySmall
                             )
                             if (installment.status != RecordStatus.APPROVED) {
@@ -421,7 +422,7 @@ fun InstallmentsTab(
                     ) {
                         Icon(Icons.Default.DateRange, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(Date(selectedDate)))
+                        Text(text = PersianDateFormat("yyyy/MM/dd").format(PersianDate(selectedDate)))
                     }
                 }
             },

@@ -16,8 +16,8 @@ android {
         applicationId = "com.oqba26.barghkar"
         minSdk = 24
         targetSdk = 35
-        versionCode = 7
-        versionName = "1.0.6"
+        versionCode = 8
+        versionName = "1.0.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -107,6 +107,9 @@ dependencies {
 
     // WorkManager for Sync
     implementation(libs.androidx.work.runtime)
+    
+    // Persian Date
+    implementation(libs.persian.date)
 
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))

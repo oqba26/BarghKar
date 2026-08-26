@@ -5,6 +5,7 @@ import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.postgrest.postgrest
 import com.oqba26.barghkar.data.model.UserProfile
 import com.oqba26.barghkar.data.model.UserRole
+import com.oqba26.barghkar.data.model.ApprenticePermission
 
 class AuthRepository {
     private val auth = SupabaseClient.client.auth
@@ -23,21 +24,61 @@ class AuthRepository {
         }
     }
 
-    suspend fun linkMaster(masterEmail: String) {
-        val masterProfile = postgrest["profiles"].select {
+    suspend fun addApprenticeByEmail(apprenticeEmail: String) {
+        val apprenticeProfile = postgrest["profiles"].select {
             filter {
-                eq("email", masterEmail)
+                eq("email", apprenticeEmail)
             }
-        }.decodeSingleOrNull<UserProfile>() ?: throw Exception("اوستایی با این ایمیل پیدا نشد")
+        }.decodeSingleOrNull<UserProfile>() ?: throw Exception("کاربری با این ایمیل پیدا نشد")
+
+        if ((apprenticeProfile.role == UserRole.MASTER) && (apprenticeProfile.masterId != null)) {
+            throw Exception("این کاربر در حال حاضر شاگرد شخص دیگری است")
+        }
 
         val currentId = auth.currentUserOrNull()?.id ?: return
         
         postgrest["profiles"].update({
-            UserProfile::masterId setTo masterProfile.id
+            UserProfile::masterId setTo currentId
             UserProfile::role setTo UserRole.APPRENTICE
+        },) {
+            filter {
+                eq("id", apprenticeProfile.id)
+            }
+        }
+    }
+
+    suspend fun getApprentices(): List<UserProfile> {
+        val currentId = auth.currentUserOrNull()?.id ?: return emptyList()
+        return try {
+            postgrest["profiles"].select {
+                filter {
+                    eq("masterId", currentId)
+                }
+            }.decodeList<UserProfile>()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
+    }
+
+    suspend fun updateApprenticePermissions(apprenticeId: String, permissions: List<ApprenticePermission>) {
+        postgrest["profiles"].update({
+            UserProfile::permissions setTo permissions
         }) {
             filter {
-                eq("id", currentId)
+                eq("id", apprenticeId)
+            }
+        }
+    }
+
+    suspend fun removeApprentice(apprenticeId: String) {
+        postgrest["profiles"].update({
+            UserProfile::masterId setTo null
+            UserProfile::role setTo UserRole.MASTER
+            UserProfile::permissions setTo emptyList()
+        }) {
+            filter {
+                eq("id", apprenticeId)
             }
         }
     }
@@ -54,6 +95,17 @@ class AuthRepository {
             this.email = email
             this.password = password
         }
+        
+        // چک کردن تاییدیه ایمیل بلافاصله بعد از ورود
+        val user = auth.currentUserOrNull()
+        if (user != null && user.emailConfirmedAt == null) {
+            auth.signOut()
+            throw Exception("ایمیل شما هنوز تایید نشده است. لطفاً لینک ارسال شده به ایمیلتان را چک کنید.")
+        }
+    }
+
+    fun isEmailConfirmed(): Boolean {
+        return auth.currentUserOrNull()?.emailConfirmedAt != null
     }
 
     suspend fun signOut() {

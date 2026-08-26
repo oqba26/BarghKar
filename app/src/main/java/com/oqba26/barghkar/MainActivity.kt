@@ -21,7 +21,6 @@ import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.milliseconds
 
 import io.github.jan.supabase.auth.handleDeeplinks
-import android.content.Intent
 import com.oqba26.barghkar.data.remote.SupabaseClient
 
 class MainActivity : ComponentActivity() {

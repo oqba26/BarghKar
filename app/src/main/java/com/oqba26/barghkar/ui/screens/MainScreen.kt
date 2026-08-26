@@ -1,11 +1,7 @@
 package com.oqba26.barghkar.ui.screens
 
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -21,6 +17,9 @@ import com.oqba26.barghkar.ui.viewmodels.AuthViewModel
 import com.oqba26.barghkar.data.sync.RealtimeSyncManager
 import io.github.jan.supabase.auth.status.SessionStatus
 import androidx.compose.ui.platform.LocalContext
+import androidx.activity.compose.BackHandler
+import android.app.Activity
+import com.oqba26.barghkar.ui.components.CustomDialog
 
 @Composable
 fun MainScreen(
@@ -30,6 +29,8 @@ fun MainScreen(
     val navController = rememberNavController()
     val sessionStatus by authViewModel.sessionStatus.collectAsState()
     
+    var showExitDialog by remember { mutableStateOf(false) }
+
     val realtimeManager = remember { RealtimeSyncManager(context, authViewModel) }
 
     LaunchedEffect(sessionStatus) {
@@ -51,7 +52,26 @@ fun MainScreen(
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentDestination = navBackStackEntry?.destination
-        val showBottomBar = currentDestination?.route != Screen.Login.route && sessionStatus is SessionStatus.Authenticated
+        val currentRoute = currentDestination?.route
+        val showBottomBar = currentRoute != Screen.Login.route && sessionStatus is SessionStatus.Authenticated
+
+        // مدیریت دکمه بازگشت (Back)
+        if (showBottomBar) {
+            BackHandler {
+                if (currentRoute == Screen.Home.route) {
+                    showExitDialog = true
+                } else {
+                    // اگر در هر صفحه‌ای غیر از خانه بودیم، با زدن بک به خانه برمی‌گردیم
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                }
+            }
+        }
 
         Scaffold(
             bottomBar = {
@@ -95,6 +115,24 @@ fun MainScreen(
                     popUpTo(0) { inclusive = true }
                 }
             }
+        }
+
+        if (showExitDialog) {
+            CustomDialog(
+                onDismissRequest = { showExitDialog = false },
+                title = { Text("خروج از برنامه") },
+                text = { Text("آیا مطمئن هستید که می‌خواهید از برنامه خارج شوید؟") },
+                confirmButton = {
+                    Button(onClick = { (context as? Activity)?.finish() }) {
+                        Text("بله، خروج")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showExitDialog = false }) {
+                        Text("انصراف")
+                    }
+                }
+            )
         }
     }
 }

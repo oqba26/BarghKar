@@ -12,7 +12,7 @@ import com.oqba26.barghkar.ui.viewmodels.AuthViewModel
 @Composable
 fun NavGraph(
     navController: NavHostController,
-    authViewModel: AuthViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    authViewModel: AuthViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
 ) {
     NavHost(
         navController = navController,
@@ -44,11 +44,10 @@ fun NavGraph(
             ReferencesScreen(
                 onNavigateToColorCodes = {
                     navController.navigate(Screen.ColorCodes.route)
-                },
-                onNavigateToSymbols = {
-                    navController.navigate(Screen.Symbols.route)
                 }
-            )
+            ) {
+                navController.navigate(Screen.Symbols.route)
+            }
         }
         composable(Screen.Customers.route) {
             CustomersScreen()
@@ -57,9 +56,11 @@ fun NavGraph(
             InventoryScreen()
         }
         composable(Screen.Projects.route) {
-            ProjectsScreen(onNavigateToProject = { projectId ->
-                navController.navigate(Screen.ProjectDetails.createRoute(projectId))
-            })
+            ProjectsScreen(
+                onNavigateToProject = { projectId ->
+                    navController.navigate(Screen.ProjectDetails.createRoute(projectId))
+                }
+            )
         }
         composable(
             route = Screen.ProjectDetails.route,

@@ -2,7 +2,6 @@ package com.oqba26.barghkar.ui.components
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -78,22 +77,17 @@ fun UpdateDialog(
         confirmButton = {
             Button(
                 onClick = onConfirm,
-                enabled = !isDownloading,
-                modifier = Modifier.padding(bottom = 12.dp),
-                shape = RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp, topEnd = 0.dp, bottomEnd = 0.dp)
+                enabled = !isDownloading
             ) {
                 Text(text = "تایید و بروزرسانی")
             }
         },
         dismissButton = {
             if (!updateInfo.isForceUpdate && !isDownloading) {
-                Button(
+                TextButton(
                     onClick = onDismiss,
-                    modifier = Modifier.padding(bottom = 12.dp),
-                    shape = RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp, topStart = 0.dp, bottomStart = 0.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error,
-                        contentColor = MaterialTheme.colorScheme.onError,
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error,
                     ),
                 ) {
                     Text(text = "بعداً")

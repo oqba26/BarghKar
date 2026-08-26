@@ -22,9 +22,9 @@ import com.oqba26.barghkar.ui.viewmodels.InventoryViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InventoryScreen(
-    viewModel: InventoryViewModel = viewModel()
+    viewModel: InventoryViewModel = viewModel(),
 ) {
-    var showDialog by remember { mutableStateOf(false) }
+    var showDialog by remember { mutableStateOf(value = false) }
     val inventory by viewModel.allInventory.collectAsState()
 
     Scaffold(
@@ -179,13 +179,15 @@ fun InventoryScreen(
                     }
                 },
                 confirmButton = {
-                    Button(onClick = {
-                        val q = quantity.toDoubleOrNull() ?: 0.0
-                        if (name.isNotBlank() && q > 0) {
-                            viewModel.addInventoryItem(name, q, unit)
-                            showDialog = false
+                    Button(
+                        onClick = {
+                            val q = quantity.toDoubleOrNull() ?: 0.0
+                            if (name.isNotBlank() && q > 0) {
+                                viewModel.addInventoryItem(name, q, unit)
+                                showDialog = false
+                            }
                         }
-                    }) {
+                    ) {
                         Text(stringResource(R.string.confirm))
                     }
                 },

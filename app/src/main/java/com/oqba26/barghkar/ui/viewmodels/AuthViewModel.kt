@@ -2,6 +2,7 @@ package com.oqba26.barghkar.ui.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.oqba26.barghkar.data.model.ApprenticePermission
 import com.oqba26.barghkar.data.model.UserProfile
 import com.oqba26.barghkar.data.model.UserRole
 import com.oqba26.barghkar.data.remote.AuthRepository
@@ -22,15 +23,26 @@ class AuthViewModel(private val repository: AuthRepository = AuthRepository()) :
     private val _userProfile = MutableStateFlow<UserProfile?>(value = null)
     val userProfile: StateFlow<UserProfile?> = _userProfile.asStateFlow()
 
+    private val _apprentices = MutableStateFlow<List<UserProfile>>(emptyList())
+    val apprentices: StateFlow<List<UserProfile>> = _apprentices.asStateFlow()
+
     val sessionStatus: StateFlow<SessionStatus> = repository.sessionStatus
 
     init {
         viewModelScope.launch {
             sessionStatus.collect { status ->
                 if (status is SessionStatus.Authenticated) {
-                    fetchProfile()
+                    // چک کردن تاییدیه ایمیل برای نشست‌های موجود
+                    if (!repository.isEmailConfirmed()) {
+                        _error.value = "ایمیل شما هنوز تایید نشده است."
+                        repository.signOut()
+                    } else {
+                        fetchProfile()
+                        fetchApprentices()
+                    }
                 } else {
                     _userProfile.value = null
+                    _apprentices.value = emptyList()
                 }
             }
         }
@@ -39,6 +51,34 @@ class AuthViewModel(private val repository: AuthRepository = AuthRepository()) :
     private fun fetchProfile() {
         viewModelScope.launch {
             _userProfile.value = repository.getUserProfile()
+        }
+    }
+
+    fun fetchApprentices() {
+        viewModelScope.launch {
+            _apprentices.value = repository.getApprentices()
+        }
+    }
+
+    fun updateApprenticePermissions(apprenticeId: String, permissions: List<ApprenticePermission>) {
+        viewModelScope.launch {
+            try {
+                repository.updateApprenticePermissions(apprenticeId, permissions)
+                fetchApprentices()
+            } catch (_: Exception) {
+                _error.value = "خطا در بروزرسانی دسترسی‌ها"
+            }
+        }
+    }
+
+    fun removeApprentice(apprenticeId: String) {
+        viewModelScope.launch {
+            try {
+                repository.removeApprentice(apprenticeId)
+                fetchApprentices()
+            } catch (_: Exception) {
+                _error.value = "خطا در حذف شاگرد"
+            }
         }
     }
 
@@ -80,15 +120,15 @@ class AuthViewModel(private val repository: AuthRepository = AuthRepository()) :
         _error.value = null
     }
 
-    fun linkMaster(email: String) {
+    fun addApprentice(email: String) {
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
             try {
-                repository.linkMaster(email)
-                fetchProfile() // بروزرسانی پروفایل بعد از لینک شدن
+                repository.addApprenticeByEmail(email)
+                fetchApprentices()
             } catch (e: Exception) {
-                _error.value = e.message ?: "خطا در اتصال به اوستا"
+                _error.value = e.message ?: "خطا در افزودن شاگرد"
             } finally {
                 _isLoading.value = false
             }
