@@ -13,6 +13,12 @@ interface CustomerDao {
     @Query("SELECT * FROM customers WHERE id = :id")
     suspend fun getCustomerById(id: Long): CustomerEntity?
 
+    @Query("SELECT * FROM customers WHERE remoteId = :remoteId")
+    suspend fun getCustomerByRemoteId(remoteId: Long): CustomerEntity?
+
+    @Query("SELECT * FROM customers WHERE name = :name AND phoneNumber = :phone LIMIT 1")
+    suspend fun getCustomerByNameAndPhone(name: String, phone: String): CustomerEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCustomer(customer: CustomerEntity): Long
 

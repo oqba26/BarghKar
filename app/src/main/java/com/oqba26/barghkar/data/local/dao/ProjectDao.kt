@@ -53,6 +53,27 @@ interface ProjectDao {
     @Update
     suspend fun updateProject(project: ProjectEntity)
 
+    @Query("SELECT * FROM projects WHERE id = :id")
+    suspend fun getProjectById(id: Long): ProjectEntity?
+
+    @Query("SELECT * FROM projects WHERE remoteId = :remoteId")
+    suspend fun getProjectByRemoteId(remoteId: Long): ProjectEntity?
+
+    @Query("SELECT * FROM projects WHERE name = :name AND userId = :userId LIMIT 1")
+    suspend fun getProjectByName(name: String, userId: String): ProjectEntity?
+
+    @Query("SELECT * FROM materials WHERE remoteId = :remoteId")
+    suspend fun getMaterialByRemoteId(remoteId: Long): MaterialEntity?
+
+    @Query("SELECT * FROM materials WHERE name = :name AND projectId = :projectId LIMIT 1")
+    suspend fun getMaterialByName(name: String, projectId: Long): MaterialEntity?
+
+    @Query("SELECT * FROM installments WHERE remoteId = :remoteId")
+    suspend fun getInstallmentByRemoteId(remoteId: Long): InstallmentEntity?
+
+    @Query("SELECT * FROM installments WHERE amount = :amount AND dueDate = :dueDate AND projectId = :projectId LIMIT 1")
+    suspend fun getInstallmentByAmountAndDate(amount: Long, dueDate: Long, projectId: Long): InstallmentEntity?
+
     @Query("SELECT * FROM installments")
     fun getAllInstallments(): Flow<List<InstallmentEntity>>
 

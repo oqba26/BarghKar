@@ -11,27 +11,48 @@ import com.oqba26.barghkar.data.local.entity.ProjectEntity
 import com.oqba26.barghkar.security.InputValidators
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.collectLatest
+import com.oqba26.barghkar.data.remote.AuthRepository
+import com.oqba26.barghkar.data.sync.SyncManager
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
+
+@OptIn(ExperimentalCoroutinesApi::class)
 class ProjectViewModel(application: Application) : AndroidViewModel(application) {
     private val repository: ProjectRepository
+    private val authRepository = AuthRepository()
+
     val allProjects: StateFlow<List<ProjectEntity>>
 
-    private val _projects = MutableStateFlow<List<ProjectEntity>>(emptyList())
     init {
-        val projectDao = AppDatabase.getDatabase(application).projectDao()
-        repository = ProjectRepository(projectDao)
-        allProjects = _projects
+        val database = AppDatabase.getDatabase(application)
+        val projectDao = database.projectDao()
+        val customerDao = database.customerDao()
+        repository = ProjectRepository(projectDao, customerDao)
+        allProjects = repository.allProjects.stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5000),
+            emptyList(),
+        )
         
         viewModelScope.launch {
-            repository.allProjects.collectLatest {
-                _projects.value = it
+            authRepository.userProfileFlow.collect { profile ->
+                val ownerId = if (profile?.role == com.oqba26.barghkar.data.model.UserRole.APPRENTICE) {
+                    profile.masterId ?: profile.id
+                } else {
+                    profile?.id ?: ""
+                }
+                if (ownerId.isNotEmpty()) {
+                    repository.syncRemoteToLocal(ownerId)
+                }
             }
         }
     }
 
-    fun addProject(
+    fun addProjectRemote(
         name: String,
         description: String,
         customerId: Long? = null,
@@ -41,62 +62,77 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
         priceMeter: Long = 0L,
         p1: Long = 0L,
         p2: Long = 0L,
-        p3: Long = 0L
+        p3: Long = 0L,
     ) {
-        val validationError = InputValidators.validateProject(name, description, area, priceFixture, priceMeter, p1, p2, p3)
-        if (validationError != null) {
-            throw IllegalArgumentException(validationError)
+        InputValidators.validateProject(name, description, area, priceFixture, priceMeter, p1, p2, p3)?.let { 
+            throw IllegalArgumentException(it) 
         }
 
         viewModelScope.launch {
-            repository.insertProject(
-                ProjectEntity(
-                    name = name.trim(),
-                    description = description.trim(),
-                    customerId = customerId,
-                    totalWage = totalWage,
-                    infrastructureArea = area,
-                    pricePerFixture = priceFixture,
-                    pricePerMeter = priceMeter,
-                    firstPayment = p1,
-                    secondPayment = p2,
-                    thirdPayment = p3
+            val profile = authRepository.userProfileFlow.first()
+            val ownerId = if (profile?.role == com.oqba26.barghkar.data.model.UserRole.APPRENTICE) {
+                profile.masterId ?: profile.id
+            } else {
+                profile?.id ?: ""
+            }
+
+            if (ownerId.isNotEmpty()) {
+                repository.addProject(
+                    ProjectEntity(
+                        userId = ownerId,
+                        customerId = customerId,
+                        name = name.trim(),
+                        description = description.trim(),
+                        totalWage = totalWage,
+                        infrastructureArea = area,
+                        pricePerFixture = priceFixture,
+                        pricePerMeter = priceMeter,
+                        firstPayment = p1,
+                        secondPayment = p2,
+                        thirdPayment = p3
+                    )
                 )
-            )
+                SyncManager.triggerImmediateSync(getApplication())
+            }
         }
     }
 
-    fun updateProject(project: ProjectEntity) {
-        viewModelScope.launch {
-            repository.insertProject(project) // Insert with ID acts as update
-        }
-    }
-
-    fun deleteProject(project: ProjectEntity) {
+    fun deleteProjectRemote(project: ProjectEntity) {
         viewModelScope.launch {
             repository.deleteProject(project)
+            SyncManager.triggerImmediateSync(getApplication())
         }
     }
 
-    fun getMaterials(projectId: Long): StateFlow<List<MaterialEntity>> {
+    fun updateProjectRemote(project: ProjectEntity) {
+        viewModelScope.launch {
+            repository.updateProject(project)
+            SyncManager.triggerImmediateSync(getApplication())
+        }
+    }
+
+    fun getMaterialsRemote(projectId: Long): StateFlow<List<MaterialEntity>> {
         val materials = MutableStateFlow<List<MaterialEntity>>(emptyList())
         viewModelScope.launch {
-            repository.getMaterialsForProject(projectId).collectLatest {
+            repository.getMaterialsForProject(projectId).collect {
                 materials.value = it
             }
         }
         return materials
     }
 
-    fun addMaterial(projectId: Long, name: String, quantity: Int, unit: String, pricePerUnit: Long = 0L, status: com.oqba26.barghkar.data.model.RecordStatus = com.oqba26.barghkar.data.model.RecordStatus.APPROVED) {
+    fun addMaterialRemote(projectId: Long, name: String, quantity: Int, unit: String, pricePerUnit: Long = 0L, status: com.oqba26.barghkar.data.model.RecordStatus = com.oqba26.barghkar.data.model.RecordStatus.APPROVED) {
         val validationError = InputValidators.validateMaterial(name, quantity, unit, pricePerUnit)
         if (validationError != null) {
             throw IllegalArgumentException(validationError)
         }
 
         viewModelScope.launch {
-            repository.insertMaterial(
+            val profile = authRepository.userProfileFlow.first()
+            val ownerId = profile?.id ?: ""
+            repository.addMaterial(
                 MaterialEntity(
+                    userId = ownerId,
                     projectId = projectId,
                     name = name.trim(),
                     quantity = quantity,
@@ -105,51 +141,67 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
                     status = status
                 )
             )
+            SyncManager.triggerImmediateSync(getApplication())
         }
     }
 
-    fun deleteMaterial(material: MaterialEntity) {
+    fun deleteMaterialRemote(material: MaterialEntity) {
         viewModelScope.launch {
             repository.deleteMaterial(material)
+            SyncManager.triggerImmediateSync(getApplication())
         }
     }
 
-    fun updateMaterial(material: MaterialEntity) {
+    fun updateMaterialRemote(material: MaterialEntity) {
         viewModelScope.launch {
-            repository.insertMaterial(material)
+            repository.updateMaterial(material)
+            SyncManager.triggerImmediateSync(getApplication())
         }
     }
 
-    fun getInstallments(projectId: Long): StateFlow<List<InstallmentEntity>> {
+    fun getInstallmentsRemote(projectId: Long): StateFlow<List<InstallmentEntity>> {
         val installments = MutableStateFlow<List<InstallmentEntity>>(emptyList())
         viewModelScope.launch {
-            repository.getInstallmentsForProject(projectId).collectLatest {
+            repository.getInstallmentsForProject(projectId).collect {
                 installments.value = it
             }
         }
         return installments
     }
 
-    fun addInstallment(projectId: Long, amount: Long, dueDate: Long, status: com.oqba26.barghkar.data.model.RecordStatus = com.oqba26.barghkar.data.model.RecordStatus.APPROVED) {
+    fun addInstallmentRemote(projectId: Long, amount: Long, dueDate: Long, status: com.oqba26.barghkar.data.model.RecordStatus = com.oqba26.barghkar.data.model.RecordStatus.APPROVED) {
         val validationError = InputValidators.validateInstallment(amount)
         if (validationError != null) {
             throw IllegalArgumentException(validationError)
         }
 
         viewModelScope.launch {
-            repository.insertInstallment(InstallmentEntity(projectId = projectId, amount = amount, dueDate = dueDate, status = status))
+            val profile = authRepository.userProfileFlow.first()
+            val ownerId = profile?.id ?: ""
+            repository.addInstallment(
+                InstallmentEntity(
+                    userId = ownerId,
+                    projectId = projectId,
+                    amount = amount,
+                    dueDate = dueDate,
+                    status = status
+                )
+            )
+            SyncManager.triggerImmediateSync(getApplication())
         }
     }
 
-    fun deleteInstallment(installment: InstallmentEntity) {
+    fun deleteInstallmentRemote(installment: InstallmentEntity) {
         viewModelScope.launch {
             repository.deleteInstallment(installment)
+            SyncManager.triggerImmediateSync(getApplication())
         }
     }
 
-    fun updateInstallment(installment: InstallmentEntity) {
+    fun updateInstallmentRemote(installment: InstallmentEntity) {
         viewModelScope.launch {
-            repository.insertInstallment(installment)
+            repository.updateInstallment(installment)
+            SyncManager.triggerImmediateSync(getApplication())
         }
     }
 }

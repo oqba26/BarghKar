@@ -15,6 +15,9 @@ class SettingsManager(context: Context) {
     private val _selectedFont = MutableStateFlow(getSelectedFont())
     val selectedFont: StateFlow<AppFont> = _selectedFont
 
+    private val _useEnglishNumbers = MutableStateFlow(getUseEnglishNumbers())
+    val useEnglishNumbers: StateFlow<Boolean> = _useEnglishNumbers
+
     private fun createEncryptedPrefs(context: Context): SharedPreferences {
         val masterKey = MasterKey.Builder(context)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
@@ -43,5 +46,16 @@ class SettingsManager(context: Context) {
             putString("selected_font", font.name)
         }
         _selectedFont.value = font
+    }
+
+    fun getUseEnglishNumbers(): Boolean {
+        return sharedPreferences.getBoolean("use_english_numbers", false)
+    }
+
+    fun setUseEnglishNumbers(use: Boolean) {
+        sharedPreferences.edit {
+            putBoolean("use_english_numbers", use)
+        }
+        _useEnglishNumbers.value = use
     }
 }

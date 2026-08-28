@@ -19,20 +19,14 @@ import saman.zamani.persiandate.PersianDate
 import saman.zamani.persiandate.PersianDateFormat
 import java.io.File
 import java.io.FileOutputStream
-import java.text.NumberFormat
-import java.util.*
 
 object InvoiceExporter {
-
-    private fun formatCurrency(amount: Long): String {
-        return NumberFormat.getInstance(Locale("fa", "IR")).format(amount)
-    }
 
     private fun getCurrentDate(): String {
         return PersianDateFormat("yyyy/MM/dd").format(PersianDate())
     }
 
-    fun generateTextInvoice(project: ProjectEntity, materials: List<MaterialEntity>): String {
+    fun generateTextInvoice(project: ProjectEntity, materials: List<MaterialEntity>, useEnglish: Boolean = false): String {
         val sb = StringBuilder()
         sb.append("فاکتور پروژه: ${project.name}\n")
         sb.append("تاریخ: ${getCurrentDate()}\n")
@@ -40,14 +34,14 @@ object InvoiceExporter {
         sb.append("---------------------------\n")
         var totalMaterial = 0L
         materials.forEach {
-            val itemTotal = it.quantity * it.pricePerUnit
-            sb.append("${it.name}: ${it.quantity} ${it.unit} × ${formatCurrency(it.pricePerUnit)} = ${formatCurrency(itemTotal)} تومان\n")
+            val itemTotal = it.quantity.toLong() * it.pricePerUnit
+            sb.append("${it.name}: ${NumberUtils.formatNumber(it.quantity, useEnglish)} ${it.unit} × ${NumberUtils.formatPrice(it.pricePerUnit, useEnglish)} = ${NumberUtils.formatPrice(itemTotal, useEnglish)} تومان\n")
             totalMaterial += itemTotal
         }
         sb.append("---------------------------\n")
-        sb.append("جمع متریال: ${formatCurrency(totalMaterial)} تومان\n")
-        sb.append("دستمزد: ${formatCurrency(project.totalWage)} تومان\n")
-        sb.append("جمع کل: ${formatCurrency(totalMaterial + project.totalWage)} تومان\n")
+        sb.append("جمع متریال: ${NumberUtils.formatPrice(totalMaterial, useEnglish)} تومان\n")
+        sb.append("دستمزد: ${NumberUtils.formatPrice(project.totalWage, useEnglish)} تومان\n")
+        sb.append("جمع کل: ${NumberUtils.formatPrice(totalMaterial + project.totalWage, useEnglish)} تومان\n")
         sb.append("\nصادر شده توسط برنامه برق‌کار")
         return sb.toString()
     }
@@ -60,7 +54,7 @@ object InvoiceExporter {
         context.startActivity(Intent.createChooser(intent, "ارسال فاکتور"))
     }
 
-    fun exportPdfInvoice(context: Context, project: ProjectEntity, materials: List<MaterialEntity>) {
+    fun exportPdfInvoice(context: Context, project: ProjectEntity, materials: List<MaterialEntity>, useEnglish: Boolean = false) {
         val pdfDocument = PdfDocument()
         val pageWidth = 595
         val pageHeight = 842
@@ -92,8 +86,8 @@ object InvoiceExporter {
 
         var totalMaterial = 0L
         materials.forEach {
-            val itemTotal = it.quantity * it.pricePerUnit
-            val line = "${it.name}: ${it.quantity} ${it.unit} × ${formatCurrency(it.pricePerUnit)} = ${formatCurrency(itemTotal)} تومان"
+            val itemTotal = it.quantity.toLong() * it.pricePerUnit
+            val line = "${it.name}: ${NumberUtils.formatNumber(it.quantity, useEnglish)} ${it.unit} × ${NumberUtils.formatPrice(it.pricePerUnit, useEnglish)} = ${NumberUtils.formatPrice(itemTotal, useEnglish)} تومان"
             drawRtlText(canvas, line, margin, y, contentWidth, textPaint)
             totalMaterial += itemTotal
             y += 30f
@@ -103,14 +97,14 @@ object InvoiceExporter {
         canvas.drawLine(margin, y, pageWidth - margin, y, textPaint)
         y += 30f
 
-        drawRtlText(canvas, "جمع متریال: ${formatCurrency(totalMaterial)} تومان", margin, y, contentWidth, textPaint)
+        drawRtlText(canvas, "جمع متریال: ${NumberUtils.formatPrice(totalMaterial, useEnglish)} تومان", margin, y, contentWidth, textPaint)
         y += 30f
-        drawRtlText(canvas, "دستمزد: ${formatCurrency(project.totalWage)} تومان", margin, y, contentWidth, textPaint)
+        drawRtlText(canvas, "دستمزد: ${NumberUtils.formatPrice(project.totalWage, useEnglish)} تومان", margin, y, contentWidth, textPaint)
         y += 40f
         
         textPaint.textSize = 18f
         textPaint.isFakeBoldText = true
-        drawRtlText(canvas, "جمع کل: ${formatCurrency(totalMaterial + project.totalWage)} تومان", margin, y, contentWidth, textPaint)
+        drawRtlText(canvas, "جمع کل: ${NumberUtils.formatPrice(totalMaterial + project.totalWage, useEnglish)} تومان", margin, y, contentWidth, textPaint)
 
         pdfDocument.finishPage(page)
 

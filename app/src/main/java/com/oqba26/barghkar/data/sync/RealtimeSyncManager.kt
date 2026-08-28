@@ -19,7 +19,13 @@ import com.oqba26.barghkar.data.local.entity.InstallmentEntity
 import com.oqba26.barghkar.data.local.entity.InventoryMaterialEntity
 import com.oqba26.barghkar.data.local.entity.MaterialEntity
 import com.oqba26.barghkar.data.local.entity.ProjectEntity
+import com.oqba26.barghkar.data.model.CustomerRemote
+import com.oqba26.barghkar.data.model.InstallmentRemote
+import com.oqba26.barghkar.data.model.InventoryRemote
+import com.oqba26.barghkar.data.model.MaterialRemote
+import com.oqba26.barghkar.data.model.ProjectRemote
 import com.oqba26.barghkar.data.model.RecordStatus
+import com.oqba26.barghkar.data.model.UserProfile
 import com.oqba26.barghkar.data.remote.SupabaseClient
 import com.oqba26.barghkar.ui.viewmodels.AuthViewModel
 import io.github.jan.supabase.realtime.*
@@ -46,7 +52,7 @@ class RealtimeSyncManager(
             val channel = NotificationChannel(
                 "barghkar_sync",
                 "اطلاعیه‌های برق‌کار",
-                NotificationManager.IMPORTANCE_HIGH
+                NotificationManager.IMPORTANCE_HIGH,
             ).apply {
                 description = "اطلاع‌رسانی تغییرات توسط شاگرد"
             }
@@ -92,53 +98,139 @@ class RealtimeSyncManager(
             handleInventoryAction(action)
         }.launchIn(scope)
 
+        // ۶. شنیدن تغییرات جدول پروفایل (برای دسترسی‌های شاگرد)
+        channel.postgresChangeFlow<PostgresAction>(schema = "public") {
+            table = "profiles"
+        }.onEach { action ->
+            android.util.Log.d("RealtimeSync", "Received profile update action: $action")
+            if (action is PostgresAction.Update) {
+                val updatedProfile = action.decodeRecord<UserProfile>()
+                android.util.Log.d("RealtimeSync", "Updated profile ID: ${updatedProfile.id}, Current ID: ${authViewModel.userProfile.value?.id}")
+                if (updatedProfile.id == authViewModel.userProfile.value?.id) {
+                    authViewModel.refreshProfile()
+                }
+            }
+        }.launchIn(scope)
+
         scope.launch {
             channel.subscribe()
         }
     }
 
     private suspend fun handleCustomerAction(action: PostgresAction) {
+        android.util.Log.d("RealtimeSync", "Customer action received: $action")
+        val currentOwnerId = authViewModel.getOwnerId()
+        android.util.Log.d("RealtimeSync", "Current owner ID: $currentOwnerId")
+        
+        if (currentOwnerId == null) return
+        
         when (action) {
-            is PostgresAction.Insert -> {
-                val customer = action.decodeRecord<CustomerEntity>()
-                database.customerDao().insertCustomer(customer.copy(isSynced = true))
+            is PostgresAction.Insert, is PostgresAction.Update -> {
+                val remote = action.decodeRecord<CustomerRemote>()
+                if (remote.userId == currentOwnerId && remote.id != null) {
+                    val existingByRemoteId = database.customerDao().getCustomerByRemoteId(remote.id)
+                    
+                    val entity = CustomerEntity(
+                        userId = remote.userId,
+                        name = remote.name,
+                        phoneNumber = remote.phoneNumber,
+                        address = remote.address,
+                        createdAt = remote.createdAt,
+                        remoteId = remote.id,
+                        isSynced = true
+                    )
+
+                    if (existingByRemoteId != null) {
+                        database.customerDao().updateCustomer(entity.copy(id = existingByRemoteId.id))
+                        android.util.Log.d("RealtimeSync", "Updated existing customer by remoteId: ${remote.name}")
+                    } else {
+                        // چک کردن برای رکوردهای محلی که هنوز remoteId نگرفته‌اند (جلوگیری از تکرار در گوشی اوستا)
+                        val unsynced = database.customerDao().getCustomerByNameAndPhone(remote.name, remote.phoneNumber)
+                        if (unsynced != null && unsynced.remoteId == null) {
+                            database.customerDao().updateCustomer(entity.copy(id = unsynced.id))
+                            android.util.Log.d("RealtimeSync", "Matched unsynced local customer and updated: ${remote.name}")
+                        } else {
+                            database.customerDao().insertCustomer(entity)
+                            android.util.Log.d("RealtimeSync", "Inserted new customer from remote: ${remote.name}")
+                        }
+                    }
+                }
             }
-            is PostgresAction.Update -> {
-                val customer = action.decodeRecord<CustomerEntity>()
-                database.customerDao().updateCustomer(customer.copy(isSynced = true))
+            is PostgresAction.Delete -> {
+                // منطق حذف در صورت نیاز
             }
             else -> {}
         }
     }
 
     private suspend fun handleInventoryAction(action: PostgresAction) {
+        val currentOwnerId = authViewModel.getOwnerId() ?: return
         when (action) {
-            is PostgresAction.Insert -> {
-                val item = action.decodeRecord<InventoryMaterialEntity>()
-                database.inventoryDao().insertInventory(item.copy(isSynced = true))
-            }
-            is PostgresAction.Update -> {
-                val item = action.decodeRecord<InventoryMaterialEntity>()
-                database.inventoryDao().updateInventory(item.copy(isSynced = true))
+            is PostgresAction.Insert, is PostgresAction.Update -> {
+                val remote = action.decodeRecord<InventoryRemote>()
+                if (remote.userId == currentOwnerId && remote.id != null) {
+                    val existingByRemoteId = database.inventoryDao().getInventoryItemByRemoteId(remote.id)
+                    val entity = InventoryMaterialEntity(
+                        userId = remote.userId,
+                        name = remote.name,
+                        quantity = remote.quantity,
+                        unit = remote.unit,
+                        remoteId = remote.id,
+                        isSynced = true
+                    )
+                    if (existingByRemoteId != null) {
+                        database.inventoryDao().updateInventory(entity.copy(id = existingByRemoteId.id))
+                    } else {
+                        val unsynced = database.inventoryDao().getInventoryItemByName(remote.name, remote.userId)
+                        if (unsynced != null && unsynced.remoteId == null) {
+                            database.inventoryDao().updateInventory(entity.copy(id = unsynced.id))
+                        } else {
+                            database.inventoryDao().insertInventory(entity)
+                        }
+                    }
+                }
             }
             else -> {}
         }
     }
 
     private suspend fun handleMaterialAction(action: PostgresAction) {
+        val currentOwnerId = authViewModel.getOwnerId() ?: return
         when (action) {
-            is PostgresAction.Insert -> {
-                val material = action.decodeRecord<MaterialEntity>()
-                database.projectDao().insertMaterial(material.copy(isSynced = true))
-                if (authViewModel.isMaster() && (material.status == RecordStatus.PENDING)) {
-                    showNotification("متریال جدید", "شاگرد یک مورد جدید ثبت کرد: ${material.name}")
-                }
-            }
-            is PostgresAction.Update -> {
-                val material = action.decodeRecord<MaterialEntity>()
-                database.projectDao().updateMaterial(material.copy(isSynced = true))
-                if (!authViewModel.isMaster() && (material.status == RecordStatus.APPROVED)) {
-                    showNotification("تایید متریال", "اوستا مورد ${material.name} را تایید کرد.")
+            is PostgresAction.Insert, is PostgresAction.Update -> {
+                val remote = action.decodeRecord<MaterialRemote>()
+                if (remote.userId == currentOwnerId && remote.id != null) {
+                    val existingByRemoteId = database.projectDao().getMaterialByRemoteId(remote.id)
+                    val localProjectId = database.projectDao().getProjectByRemoteId(remote.projectId)?.id ?: return
+                    
+                    val entity = MaterialEntity(
+                        userId = remote.userId,
+                        projectId = localProjectId,
+                        name = remote.name,
+                        quantity = remote.quantity,
+                        unit = remote.unit,
+                        pricePerUnit = remote.pricePerUnit,
+                        remoteId = remote.id,
+                        isSynced = true,
+                        status = remote.status
+                    )
+                    
+                    if (existingByRemoteId != null) {
+                        database.projectDao().updateMaterial(entity.copy(id = existingByRemoteId.id))
+                    } else {
+                        val unsynced = database.projectDao().getMaterialByName(remote.name, localProjectId)
+                        if (unsynced != null && unsynced.remoteId == null) {
+                            database.projectDao().updateMaterial(entity.copy(id = unsynced.id))
+                        } else {
+                            database.projectDao().insertMaterial(entity)
+                        }
+                    }
+
+                    if (action is PostgresAction.Insert && authViewModel.isMaster() && (remote.status == RecordStatus.PENDING)) {
+                        showNotification("متریال جدید", "شاگرد یک مورد جدید ثبت کرد: ${remote.name}")
+                    } else if (action is PostgresAction.Update && !authViewModel.isMaster() && (remote.status == RecordStatus.APPROVED)) {
+                        showNotification("تایید متریال", "اوستا مورد ${remote.name} را تایید کرد.")
+                    }
                 }
             }
             is PostgresAction.Delete -> {
@@ -149,19 +241,41 @@ class RealtimeSyncManager(
     }
 
     private suspend fun handleInstallmentAction(action: PostgresAction) {
+        val currentOwnerId = authViewModel.getOwnerId() ?: return
         when (action) {
-            is PostgresAction.Insert -> {
-                val installment = action.decodeRecord<InstallmentEntity>()
-                database.projectDao().insertInstallment(installment.copy(isSynced = true))
-                if (authViewModel.isMaster() && (installment.status == RecordStatus.PENDING)) {
-                    showNotification("قسط جدید", "شاگرد یک قسط جدید ثبت کرد.")
-                }
-            }
-            is PostgresAction.Update -> {
-                val installment = action.decodeRecord<InstallmentEntity>()
-                database.projectDao().updateInstallment(installment.copy(isSynced = true))
-                if (!authViewModel.isMaster() && (installment.status == RecordStatus.APPROVED)) {
-                    showNotification("تایید قسط", "اوستا یک قسط را تایید کرد.")
+            is PostgresAction.Insert, is PostgresAction.Update -> {
+                val remote = action.decodeRecord<InstallmentRemote>()
+                if (remote.userId == currentOwnerId && remote.id != null) {
+                    val existingByRemoteId = database.projectDao().getInstallmentByRemoteId(remote.id)
+                    val localProjectId = database.projectDao().getProjectByRemoteId(remote.projectId)?.id ?: return
+                    
+                    val entity = InstallmentEntity(
+                        userId = remote.userId,
+                        projectId = localProjectId,
+                        amount = remote.amount,
+                        dueDate = remote.dueDate,
+                        isPaid = remote.isPaid,
+                        remoteId = remote.id,
+                        isSynced = true,
+                        status = remote.status
+                    )
+                    
+                    if (existingByRemoteId != null) {
+                        database.projectDao().updateInstallment(entity.copy(id = existingByRemoteId.id))
+                    } else {
+                        val unsynced = database.projectDao().getInstallmentByAmountAndDate(remote.amount, remote.dueDate, localProjectId)
+                        if (unsynced != null && unsynced.remoteId == null) {
+                            database.projectDao().updateInstallment(entity.copy(id = unsynced.id))
+                        } else {
+                            database.projectDao().insertInstallment(entity)
+                        }
+                    }
+
+                    if (action is PostgresAction.Insert && authViewModel.isMaster() && (remote.status == RecordStatus.PENDING)) {
+                        showNotification("قسط جدید", "شاگرد یک قسط جدید ثبت کرد.")
+                    } else if (action is PostgresAction.Update && !authViewModel.isMaster() && (remote.status == RecordStatus.APPROVED)) {
+                        showNotification("تایید قسط", "اوستا یک قسط را تایید کرد.")
+                    }
                 }
             }
             else -> {}
@@ -169,17 +283,48 @@ class RealtimeSyncManager(
     }
 
     private suspend fun handleProjectAction(action: PostgresAction) {
+        android.util.Log.d("RealtimeSync", "Project action received: $action")
+        val currentOwnerId = authViewModel.getOwnerId() ?: return
+        
         when (action) {
-            is PostgresAction.Insert -> {
-                val project = action.decodeRecord<ProjectEntity>()
-                database.projectDao().updateProject(project.copy(isSynced = true))
-                if (authViewModel.isMaster()) {
-                    showNotification("پروژه جدید", "یک پروژه جدید ثبت شد: ${project.name}")
+            is PostgresAction.Insert, is PostgresAction.Update -> {
+                val remote = action.decodeRecord<ProjectRemote>()
+                if (remote.userId == currentOwnerId && remote.id != null) {
+                    val existingByRemoteId = database.projectDao().getProjectByRemoteId(remote.id)
+                    val localCustomerId = remote.customerId?.let { database.customerDao().getCustomerByRemoteId(it)?.id }
+                    
+                    val entity = ProjectEntity(
+                        userId = remote.userId,
+                        name = remote.name,
+                        description = remote.description,
+                        customerId = localCustomerId,
+                        totalWage = remote.totalWage,
+                        createdAt = remote.createdAt,
+                        remoteId = remote.id,
+                        isSynced = true,
+                        infrastructureArea = remote.infrastructureArea,
+                        pricePerFixture = remote.pricePerFixture,
+                        pricePerMeter = remote.pricePerMeter,
+                        firstPayment = remote.firstPayment,
+                        secondPayment = remote.secondPayment,
+                        thirdPayment = remote.thirdPayment
+                    )
+                    
+                    if (existingByRemoteId != null) {
+                        database.projectDao().updateProject(entity.copy(id = existingByRemoteId.id))
+                    } else {
+                        val unsynced = database.projectDao().getProjectByName(remote.name, remote.userId)
+                        if (unsynced != null && unsynced.remoteId == null) {
+                            database.projectDao().updateProject(entity.copy(id = unsynced.id))
+                        } else {
+                            database.projectDao().insertProject(entity)
+                        }
+                        
+                        if (action is PostgresAction.Insert && authViewModel.isMaster()) {
+                            showNotification("پروژه جدید", "یک پروژه جدید ثبت شد: ${remote.name}")
+                        }
+                    }
                 }
-            }
-            is PostgresAction.Update -> {
-                val project = action.decodeRecord<ProjectEntity>()
-                database.projectDao().updateProject(project.copy(isSynced = true))
             }
             else -> {}
         }

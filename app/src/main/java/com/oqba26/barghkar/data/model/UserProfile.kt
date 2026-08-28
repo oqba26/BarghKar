@@ -5,7 +5,9 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 enum class UserRole {
+    @SerialName("master")
     MASTER,
+    @SerialName("apprentice")
     APPRENTICE
 }
 
@@ -25,5 +27,6 @@ data class UserProfile(
     val masterId: String? = null,
     @SerialName("full_name")
     val fullName: String? = null,
+    @SerialName("permissions")
     val permissions: List<ApprenticePermission> = emptyList()
 )

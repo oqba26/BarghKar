@@ -47,7 +47,8 @@ class UpdateManager(private val context: Context) {
     private val updateUrl = "https://raw.githubusercontent.com/oqba26/BarghKar/main/update.json"
 
     private fun isSafeUpdateSource(url: String): Boolean {
-        return AppConfigValidator.isSafeHttpsUrl(url) && url.contains("github.com", ignoreCase = true)
+        return AppConfigValidator.isSafeHttpsUrl(url) && 
+               (url.contains("github.com", ignoreCase = true) || url.contains("githubusercontent.com", ignoreCase = true))
     }
 
     private val json = Json {

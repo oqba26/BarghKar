@@ -9,7 +9,7 @@ import androidx.compose.material.icons.filled.ElectricBolt
 import androidx.compose.material.icons.filled.FlashlightOff
 import androidx.compose.material.icons.filled.FlashlightOn
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -25,8 +25,9 @@ import com.oqba26.barghkar.ui.viewmodels.UtilityViewModel
 import com.oqba26.barghkar.ui.viewmodels.HomeViewModel
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import java.text.NumberFormat
-import java.util.Locale
+import androidx.compose.ui.platform.LocalContext
+import com.oqba26.barghkar.BarghKarApp
+import com.oqba26.barghkar.utils.NumberUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,6 +41,10 @@ fun HomeScreen(
     val income by homeViewModel.monthlyIncome.collectAsState()
     val profit by homeViewModel.monthlyProfit.collectAsState()
     val inventoryCount by homeViewModel.inventoryCount.collectAsState()
+
+    val context = LocalContext.current
+    val settingsManager = (context.applicationContext as? BarghKarApp)?.settingsManager
+    val useEnglishNumbers by settingsManager?.useEnglishNumbers?.collectAsState() ?: remember { mutableStateOf(false) }
     
     Scaffold(
         topBar = {
@@ -84,7 +89,8 @@ fun HomeScreen(
                 SummarySection(
                     income = income,
                     profit = profit,
-                    inventoryCount = inventoryCount
+                    inventoryCount = inventoryCount,
+                    useEnglishNumbers = useEnglishNumbers
                 )
             }
             
@@ -131,9 +137,7 @@ fun HomeScreen(
 }
 
 @Composable
-fun SummarySection(income: Long, profit: Long, inventoryCount: Int) {
-    val formatter = NumberFormat.getInstance(Locale("fa", "IR"))
-    
+fun SummarySection(income: Long, profit: Long, inventoryCount: Int, useEnglishNumbers: Boolean) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -141,20 +145,20 @@ fun SummarySection(income: Long, profit: Long, inventoryCount: Int) {
         ) {
             SummaryCard(
                 title = "درآمد ماه",
-                value = "${formatter.format(income)} تومان",
+                value = "${NumberUtils.formatPrice(income, useEnglishNumbers)} تومان",
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 modifier = Modifier.weight(1f)
             )
             SummaryCard(
                 title = "سود ماه",
-                value = "${formatter.format(profit)} تومان",
+                value = "${NumberUtils.formatPrice(profit, useEnglishNumbers)} تومان",
                 containerColor = MaterialTheme.colorScheme.secondaryContainer,
                 modifier = Modifier.weight(1f)
             )
         }
         SummaryCard(
             title = "موجودی کالاها",
-            value = "$inventoryCount مورد در انبار",
+            value = "${NumberUtils.formatNumber(inventoryCount, useEnglishNumbers)} مورد در انبار",
             containerColor = MaterialTheme.colorScheme.tertiaryContainer,
             modifier = Modifier.fillMaxWidth()
         )

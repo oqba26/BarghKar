@@ -16,8 +16,8 @@ android {
         applicationId = "com.oqba26.barghkar"
         minSdk = 24
         targetSdk = 35
-        versionCode = 10
-        versionName = "1.0.9"
+        versionCode = 11
+        versionName = "1.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -47,8 +47,16 @@ android {
 
     buildTypes {
         release {
-            val isReleaseTask = gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }
-            if (isReleaseTask) {
+            val requestTasks = gradle.startParameter.taskNames
+            val isActualReleaseBuild = requestTasks.any { taskName ->
+                taskName.equals("assembleRelease", ignoreCase = true) ||
+                    taskName.equals("bundleRelease", ignoreCase = true) ||
+                    taskName.equals("installRelease", ignoreCase = true) ||
+                    taskName.equals("publishRelease", ignoreCase = true) ||
+                    Regex("(?i)(assemble|bundle|install|publish).*Release").matches(taskName)
+            }
+
+            if (isActualReleaseBuild) {
                 val releaseStoreFile = System.getenv("RELEASE_STORE_FILE")
                 val releaseStorePassword = System.getenv("RELEASE_STORE_PASSWORD")
                 val releaseKeyAlias = System.getenv("RELEASE_KEY_ALIAS")

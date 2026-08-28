@@ -2,7 +2,17 @@ package com.oqba26.barghkar.data.remote
 
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
+import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.postgrest.postgrest
+import io.github.jan.supabase.realtime.PostgresAction
+import io.github.jan.supabase.realtime.channel
+import io.github.jan.supabase.realtime.postgresChangeFlow
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import com.oqba26.barghkar.data.model.UserProfile
 import com.oqba26.barghkar.data.model.UserRole
 import com.oqba26.barghkar.data.model.ApprenticePermission
@@ -32,33 +42,52 @@ class AuthRepository {
     suspend fun getUserProfile(): UserProfile? {
         val user = auth.currentUserOrNull() ?: return null
         return try {
-            val profile = postgrest["profiles"].select {
+            val response = postgrest["profiles"].select {
                 filter {
                     eq("id", user.id)
                 }
-            }.decodeSingleOrNull<UserProfile>()
+            }
+            android.util.Log.d("AuthRepository", "Raw Response: ${response.data}")
+            val profile = response.decodeSingleOrNull<UserProfile>()
 
             if (profile == null) {
+                android.util.Log.d("AuthRepository", "Profile not found, creating new one for: ${user.email}")
                 val newProfile = UserProfile(
                     id = user.id,
                     email = user.email,
-                    role = UserRole.MASTER
+                    role = UserRole.MASTER,
                 )
                 postgrest["profiles"].insert(newProfile)
                 newProfile
             } else {
+                android.util.Log.d("AuthRepository", "Profile loaded: ${profile.role}")
                 profile
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("AuthRepository", "Error fetching profile", e)
             null
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val userProfileFlow: Flow<UserProfile?> = auth.sessionStatus.flatMapLatest { status ->
+        if (status is SessionStatus.Authenticated) {
+            val channel = SupabaseClient.client.channel("profile_changes")
+            channel.postgresChangeFlow<PostgresAction>(schema = "public") {
+                table = "profiles"
+            }.map {
+                getUserProfile()
+            }.onStart {
+                emit(getUserProfile())
+            }
+        } else {
+            emptyFlow()
         }
     }
 
     suspend fun addApprenticeByEmail(apprenticeEmail: String) {
         val normalizedEmail = apprenticeEmail.trim()
-        val validationError = validateApprenticeEmail(normalizedEmail)
-        if (validationError != null) throw IllegalArgumentException(validationError)
+        validateApprenticeEmail(normalizedEmail)?.let { throw IllegalArgumentException(it) }
 
         val currentUser = auth.currentUserOrNull() ?: throw IllegalStateException("کاربر واردشده‌ای پیدا نشد")
         val currentUserProfile = postgrest["profiles"].select {
@@ -82,7 +111,7 @@ class AuthRepository {
         }.decodeList<UserProfile>()
 
         if (apprenticeProfiles.isEmpty()) {
-            throw IllegalArgumentException("کاربری با این ایمیل پیدا نشد")
+            throw IllegalArgumentException("این ایمیل هنوز در برنامه ثبت‌نام نکرده است")
         }
 
         val apprenticeProfile = apprenticeProfiles.first()
@@ -90,18 +119,27 @@ class AuthRepository {
             throw IllegalArgumentException("شما نمی‌توانید خودتان را به عنوان شاگرد اضافه کنید")
         }
 
-        if (apprenticeProfile.role == UserRole.APPRENTICE && apprenticeProfile.masterId != null && apprenticeProfile.masterId != currentUser.id) {
+        if ((apprenticeProfile.role == UserRole.APPRENTICE) && 
+            (apprenticeProfile.masterId != null) && 
+            (apprenticeProfile.masterId != currentUser.id)) {
             throw IllegalArgumentException("این کاربر در حال حاضر شاگرد شخص دیگری است")
         }
 
-        postgrest["profiles"].update({
-            UserProfile::masterId setTo currentUser.id
-            UserProfile::role setTo UserRole.APPRENTICE
-            UserProfile::permissions setTo emptyList()
-        }) {
-            filter {
-                eq("id", apprenticeProfile.id)
+        try {
+            postgrest["profiles"].update(
+                {
+                    UserProfile::masterId setTo currentUser.id
+                    UserProfile::role setTo UserRole.APPRENTICE
+                    UserProfile::permissions setTo emptyList()
+                },
+            ) {
+                filter {
+                    eq("id", apprenticeProfile.id)
+                }
             }
+        } catch (e: Exception) {
+            android.util.Log.e("AuthRepository", "Error adding apprentice: ${e.message}", e)
+            throw e
         }
     }
 
@@ -114,36 +152,49 @@ class AuthRepository {
                 }
             }.decodeList<UserProfile>()
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("AuthRepository", "Error fetching apprentices: ${e.message}", e)
             emptyList()
         }
     }
 
     suspend fun updateApprenticePermissions(apprenticeId: String, permissions: List<ApprenticePermission>) {
-        postgrest["profiles"].update({
-            UserProfile::permissions setTo permissions
-        }) {
-            filter {
-                eq("id", apprenticeId)
+        try {
+            postgrest["profiles"].update(
+                {
+                    UserProfile::permissions setTo permissions
+                },
+            ) {
+                filter {
+                    eq("id", apprenticeId)
+                }
             }
+        } catch (e: Exception) {
+            android.util.Log.e("AuthRepository", "Error updating permissions: ${e.message}", e)
+            throw e
         }
     }
 
     suspend fun removeApprentice(apprenticeId: String) {
-        postgrest["profiles"].update({
-            UserProfile::masterId setTo null
-            UserProfile::role setTo UserRole.MASTER
-            UserProfile::permissions setTo emptyList()
-        }) {
-            filter {
-                eq("id", apprenticeId)
+        try {
+            postgrest["profiles"].update(
+                {
+                    UserProfile::masterId setTo null
+                    UserProfile::role setTo UserRole.MASTER
+                    UserProfile::permissions setTo emptyList()
+                },
+            ) {
+                filter {
+                    eq("id", apprenticeId)
+                }
             }
+        } catch (e: Exception) {
+            android.util.Log.e("AuthRepository", "Error removing apprentice: ${e.message}", e)
+            throw e
         }
     }
 
     suspend fun signUp(email: String, password: String) {
-        val error = validateCredentials(email, password)
-        if (error != null) throw IllegalArgumentException(error)
+        validateCredentials(email, password)?.let { throw IllegalArgumentException(it) }
 
         auth.signUpWith(Email) {
             this.email = email.trim()
@@ -152,24 +203,12 @@ class AuthRepository {
     }
 
     suspend fun signIn(email: String, password: String) {
-        val error = validateCredentials(email, password)
-        if (error != null) throw IllegalArgumentException(error)
+        validateCredentials(email, password)?.let { throw IllegalArgumentException(it) }
 
         auth.signInWith(Email) {
             this.email = email.trim()
             this.password = password.trim()
         }
-        
-        // چک کردن تاییدیه ایمیل بلافاصله بعد از ورود
-        val user = auth.currentUserOrNull()
-        if (user != null && user.emailConfirmedAt == null) {
-            auth.signOut()
-            throw Exception("ایمیل شما هنوز تایید نشده است. لطفاً لینک ارسال شده به ایمیلتان را چک کنید.")
-        }
-    }
-
-    fun isEmailConfirmed(): Boolean {
-        return auth.currentUserOrNull()?.emailConfirmedAt != null
     }
 
     suspend fun signOut() {

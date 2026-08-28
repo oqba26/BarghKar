@@ -11,21 +11,26 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import com.oqba26.barghkar.data.model.RecordStatus
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.VisualTransformation
+import com.oqba26.barghkar.BarghKarApp
+import com.oqba26.barghkar.utils.NumberUtils
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.ui.res.stringResource
 import com.oqba26.barghkar.R
 import com.oqba26.barghkar.domain.ElectricalSupplies
 import com.oqba26.barghkar.ui.components.CustomDialog
 import com.oqba26.barghkar.ui.viewmodels.AuthViewModel
 import com.oqba26.barghkar.ui.viewmodels.ProjectViewModel
 import com.oqba26.barghkar.utils.InvoiceExporter
+import com.oqba26.barghkar.utils.VibrationUtils
+import android.widget.Toast
 import saman.zamani.persiandate.PersianDate
 import saman.zamani.persiandate.PersianDateFormat
-import java.text.NumberFormat
-import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,12 +39,18 @@ fun MaterialListScreen(
     projectViewModel: ProjectViewModel = viewModel(),
     authViewModel: AuthViewModel = viewModel(),
 ) {
+    val context = LocalContext.current
+    val settingsManager = (context.applicationContext as? BarghKarApp)?.settingsManager
+    val useEnglishNumbers by settingsManager?.useEnglishNumbers?.collectAsState() ?: remember { mutableStateOf(false) }
+
     var selectedTab by remember { mutableIntStateOf(0) }
     val project = projectViewModel.allProjects.collectAsState().value.find { it.id == projectId }
-    val materials by projectViewModel.getMaterials(projectId).collectAsState()
-    val installments by projectViewModel.getInstallments(projectId).collectAsState()
+    val materials by projectViewModel.getMaterialsRemote(projectId).collectAsState()
+    val installments by projectViewModel.getInstallmentsRemote(projectId).collectAsState()
     val isMaster = authViewModel.isMaster()
-    val context = LocalContext.current
+
+    var materialToDelete by remember { mutableStateOf<com.oqba26.barghkar.data.local.entity.MaterialEntity?>(null) }
+    var installmentToDelete by remember { mutableStateOf<com.oqba26.barghkar.data.local.entity.InstallmentEntity?>(null) }
 
     Scaffold(
         topBar = {
@@ -50,7 +61,7 @@ fun MaterialListScreen(
                         IconButton(
                             onClick = {
                                 project?.let {
-                                    val text = InvoiceExporter.generateTextInvoice(it, materials)
+                                    val text = InvoiceExporter.generateTextInvoice(it, materials, useEnglishNumbers)
                                     InvoiceExporter.shareTextInvoice(context, text)
                                 }
                             },
@@ -59,7 +70,7 @@ fun MaterialListScreen(
                         }
                         IconButton(onClick = {
                             project?.let {
-                                InvoiceExporter.exportPdfInvoice(context, it, materials)
+                                InvoiceExporter.exportPdfInvoice(context, it, materials, useEnglishNumbers)
                             }
                         }) {
                             Icon(Icons.Default.Calculate, contentDescription = "PDF")
@@ -85,16 +96,60 @@ fun MaterialListScreen(
             }
 
             when (selectedTab) {
-                0 -> MaterialsTab(projectId, projectViewModel, materials, isMaster)
-                1 -> InstallmentsTab(projectId, projectViewModel, installments, isMaster)
-                2 -> if (isMaster) InvoiceTab(project, materials, projectViewModel)
+                0 -> MaterialsTab(projectId, projectViewModel, materials, isMaster, useEnglishNumbers) { materialToDelete = it }
+                1 -> InstallmentsTab(projectId, projectViewModel, installments, isMaster, useEnglishNumbers) { installmentToDelete = it }
+                2 -> if (isMaster) InvoiceTab(project, materials, projectViewModel, useEnglishNumbers)
             }
         }
-    }
-}
 
-private fun formatPrice(price: Long): String {
-    return NumberFormat.getInstance(Locale("fa", "IR")).format(price)
+        if (materialToDelete != null) {
+            CustomDialog(
+                onDismissRequest = { materialToDelete = null },
+                title = { Text("حذف متریال") },
+                text = { Text("آیا از حذف ${materialToDelete?.name} مطمئن هستید؟") },
+                confirmButton = {
+                    TextButton(onClick = { materialToDelete = null }) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                },
+                dismissButton = {
+                    Button(
+                        onClick = {
+                            materialToDelete?.let { projectViewModel.deleteMaterialRemote(it) }
+                            materialToDelete = null
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text(stringResource(R.string.confirm))
+                    }
+                }
+            )
+        }
+
+        if (installmentToDelete != null) {
+            CustomDialog(
+                onDismissRequest = { installmentToDelete = null },
+                title = { Text("حذف قسط") },
+                text = { Text("آیا از حذف این قسط مطمئن هستید؟") },
+                confirmButton = {
+                    TextButton(onClick = { installmentToDelete = null }) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                },
+                dismissButton = {
+                    Button(
+                        onClick = {
+                            installmentToDelete?.let { projectViewModel.deleteInstallmentRemote(it) }
+                            installmentToDelete = null
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text(stringResource(R.string.confirm))
+                    }
+                }
+            )
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -103,9 +158,12 @@ fun MaterialsTab(
     projectId: Long,
     viewModel: ProjectViewModel,
     materials: List<com.oqba26.barghkar.data.local.entity.MaterialEntity>,
-    isMaster: Boolean
+    isMaster: Boolean,
+    useEnglishNumbers: Boolean,
+    onDelete: (com.oqba26.barghkar.data.local.entity.MaterialEntity) -> Unit
 ) {
     var showDialog by remember { mutableStateOf(value = false) }
+    val context = LocalContext.current
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -133,9 +191,9 @@ fun MaterialsTab(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(text = material.name, style = MaterialTheme.typography.titleMedium)
                                 val priceText = if (isMaster) {
-                                    "${material.quantity} ${material.unit} × ${formatPrice(material.pricePerUnit)} تومان"
+                                    "${NumberUtils.formatNumber(material.quantity, useEnglishNumbers)} ${material.unit} × ${NumberUtils.formatPrice(material.pricePerUnit, useEnglishNumbers)} تومان"
                                 } else {
-                                    "${material.quantity} ${material.unit}"
+                                    "${NumberUtils.formatNumber(material.quantity, useEnglishNumbers)} ${material.unit}"
                                 }
                                 Text(text = priceText, style = MaterialTheme.typography.bodySmall)
                             }
@@ -143,14 +201,14 @@ fun MaterialsTab(
                             if (isMaster) {
                                 Row {
                                     if (material.status == RecordStatus.PENDING) {
-                                        IconButton(onClick = { viewModel.updateMaterial(material.copy(status = RecordStatus.APPROVED)) }) {
+                                        IconButton(onClick = { viewModel.updateMaterialRemote(material.copy(status = RecordStatus.APPROVED)) }) {
                                             Icon(Icons.Default.Check, contentDescription = "تایید", tint = Color.Green)
                                         }
-                                        IconButton(onClick = { viewModel.updateMaterial(material.copy(status = RecordStatus.REJECTED)) }) {
+                                        IconButton(onClick = { viewModel.updateMaterialRemote(material.copy(status = RecordStatus.REJECTED)) }) {
                                             Icon(Icons.Default.Close, contentDescription = "رد", tint = Color.Red)
                                         }
                                     }
-                                    IconButton(onClick = { viewModel.deleteMaterial(material) }) {
+                                    IconButton(onClick = { onDelete(material) }) {
                                         Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete))
                                     }
                                 }
@@ -198,7 +256,6 @@ fun MaterialsTab(
             title = { Text(stringResource(R.string.new_material)) },
             text = {
                 Column {
-                    // ردیف پیشنهادات سریع (Quick Select)
                     Text(text = "پیشنهادات سریع:", style = MaterialTheme.typography.labelSmall)
                     LazyRow(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
@@ -220,7 +277,6 @@ fun MaterialsTab(
                     
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // فیلد نام کالا با پیشنهاد خودکار
                     ExposedDropdownMenuBox(
                         expanded = nameExpanded,
                         onExpandedChange = { nameExpanded = !nameExpanded }
@@ -257,14 +313,22 @@ fun MaterialsTab(
                     Spacer(modifier = Modifier.height(8.dp))
                     TextField(
                         value = quantity, 
-                        onValueChange = { quantity = it }, 
+                        onValueChange = { 
+                            val englishDigits = NumberUtils.englishizeDigits(it)
+                            if (englishDigits.all { char -> char.isDigit() || char == '.' }) {
+                                quantity = englishDigits
+                            } else {
+                                Toast.makeText(context, "لطفاً فقط عدد وارد کنید", Toast.LENGTH_SHORT).show()
+                            }
+                        }, 
                         label = { Text(stringResource(R.string.quantity)) },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        visualTransformation = if (useEnglishNumbers) VisualTransformation.None else NumberUtils.getPersianNumberTransformation()
                     )
                     
                     Spacer(modifier = Modifier.height(8.dp))
                     
-                    // فیلد واحد با لیست پیشنهادی
                     ExposedDropdownMenuBox(
                         expanded = unitExpanded,
                         onExpandedChange = { unitExpanded = !unitExpanded }
@@ -296,30 +360,42 @@ fun MaterialsTab(
                         Spacer(modifier = Modifier.height(8.dp))
                         TextField(
                             value = price, 
-                            onValueChange = { price = it }, 
+                            onValueChange = { 
+                                val englishDigits = NumberUtils.englishizeDigits(it)
+                                if (englishDigits.all { char -> char.isDigit() }) {
+                                    price = englishDigits
+                                } else {
+                                    Toast.makeText(context, "لطفاً فقط عدد وارد کنید", Toast.LENGTH_SHORT).show()
+                                }
+                            }, 
                             label = { Text(stringResource(R.string.price_per_unit)) },
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            visualTransformation = if (useEnglishNumbers) VisualTransformation.None else NumberUtils.getPersianNumberTransformation()
                         )
                     }
                 }
             },
             confirmButton = {
+                TextButton(onClick = { showDialog = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+            dismissButton = {
                 Button(onClick = {
                     val cleanName = name.trim()
                     val cleanUnit = unit.trim()
-                    val q = quantity.toIntOrNull() ?: 0
+                    val q = quantity.toDoubleOrNull() ?: 0.0
                     val p = price.toLongOrNull() ?: 0L
                     if (cleanName.isNotBlank() && cleanUnit.isNotBlank() && q > 0 && p >= 0L) {
                         val status = if (isMaster) RecordStatus.APPROVED else RecordStatus.PENDING
-                        viewModel.addMaterial(projectId, cleanName, q, cleanUnit, p, status)
+                        viewModel.addMaterialRemote(projectId, cleanName, q.toInt(), cleanUnit, p, status)
                         showDialog = false
+                    } else {
+                        VibrationUtils.vibrate(context)
+                        Toast.makeText(context, "لطفاً تمامی فیلدها را به درستی پر کنید", Toast.LENGTH_SHORT).show()
                     }
                 }) { Text(stringResource(R.string.confirm)) }
-            },
-            dismissButton = {
-                Button(onClick = { showDialog = false }, colors = ButtonDefaults.buttonColors(containerColor = Color.Red)) {
-                    Text(stringResource(R.string.cancel))
-                }
             }
         )
     }
@@ -331,9 +407,12 @@ fun InstallmentsTab(
     projectId: Long,
     viewModel: ProjectViewModel,
     installments: List<com.oqba26.barghkar.data.local.entity.InstallmentEntity>,
-    isMaster: Boolean
+    isMaster: Boolean,
+    useEnglishNumbers: Boolean,
+    onDelete: (com.oqba26.barghkar.data.local.entity.InstallmentEntity) -> Unit
 ) {
     var showDialog by remember { mutableStateOf(value = false) }
+    val context = LocalContext.current
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -359,7 +438,7 @@ fun InstallmentsTab(
                     ) {
                         Column {
                             if (isMaster) {
-                                Text(text = "${formatPrice(installment.amount)} تومان", style = MaterialTheme.typography.titleMedium)
+                                Text(text = "${NumberUtils.formatPrice(installment.amount, useEnglishNumbers)} تومان", style = MaterialTheme.typography.titleMedium)
                             }
                             Text(
                                 text = PersianDateFormat("yyyy/MM/dd").format(PersianDate(installment.dueDate)),
@@ -377,14 +456,14 @@ fun InstallmentsTab(
                         if (isMaster) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 if (installment.status == RecordStatus.PENDING) {
-                                    IconButton(onClick = { viewModel.updateInstallment(installment.copy(status = RecordStatus.APPROVED)) }) {
+                                    IconButton(onClick = { viewModel.updateInstallmentRemote(installment.copy(status = RecordStatus.APPROVED)) }) {
                                         Icon(Icons.Default.Check, contentDescription = null, tint = Color.Green)
                                     }
                                 }
                                 Checkbox(checked = installment.isPaid, onCheckedChange = {
-                                    viewModel.updateInstallment(installment.copy(isPaid = it))
+                                    viewModel.updateInstallmentRemote(installment.copy(isPaid = it))
                                 })
-                                IconButton(onClick = { viewModel.deleteInstallment(installment) }) {
+                                IconButton(onClick = { onDelete(installment) }) {
                                     Icon(Icons.Default.Delete, contentDescription = null)
                                 }
                             }
@@ -417,9 +496,18 @@ fun InstallmentsTab(
                 Column {
                     TextField(
                         value = amount,
-                        onValueChange = { amount = it },
+                        onValueChange = { 
+                            val englishDigits = NumberUtils.englishizeDigits(it)
+                            if (englishDigits.all { char -> char.isDigit() }) {
+                                amount = englishDigits
+                            } else {
+                                Toast.makeText(context, "لطفاً فقط عدد وارد کنید", Toast.LENGTH_SHORT).show()
+                            }
+                        },
                         label = { Text(stringResource(R.string.amount)) },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        visualTransformation = if (useEnglishNumbers) VisualTransformation.None else NumberUtils.getPersianNumberTransformation()
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     OutlinedButton(
@@ -433,19 +521,22 @@ fun InstallmentsTab(
                 }
             },
             confirmButton = {
+                TextButton(onClick = { showDialog = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+            dismissButton = {
                 Button(onClick = {
                     val a = amount.trim().toLongOrNull() ?: 0L
                     if (a > 0L) {
                         val status = if (isMaster) RecordStatus.APPROVED else RecordStatus.PENDING
-                        viewModel.addInstallment(projectId, a, selectedDate, status)
+                        viewModel.addInstallmentRemote(projectId, a, selectedDate, status)
                         showDialog = false
+                    } else {
+                        VibrationUtils.vibrate(context)
+                        Toast.makeText(context, "لطفاً مبلغ قسط را وارد کنید", Toast.LENGTH_SHORT).show()
                     }
                 }) { Text(stringResource(R.string.confirm)) }
-            },
-            dismissButton = {
-                Button(onClick = { showDialog = false }, colors = ButtonDefaults.buttonColors(containerColor = Color.Red)) {
-                    Text(stringResource(R.string.cancel))
-                }
             }
         )
 
@@ -470,29 +561,34 @@ fun InstallmentsTab(
 }
 
 @Composable
-fun InvoiceTab(project: com.oqba26.barghkar.data.local.entity.ProjectEntity?, materials: List<com.oqba26.barghkar.data.local.entity.MaterialEntity>, viewModel: ProjectViewModel) {
+fun InvoiceTab(project: com.oqba26.barghkar.data.local.entity.ProjectEntity?, materials: List<com.oqba26.barghkar.data.local.entity.MaterialEntity>, viewModel: ProjectViewModel, useEnglishNumbers: Boolean) {
     if (project == null) return
     var totalWage by remember { mutableStateOf(project.totalWage.toString()) }
-    val totalMaterial = materials.sumOf { it.quantity * it.pricePerUnit }
+    val totalMaterial = materials.sumOf { it.quantity.toLong() * it.pricePerUnit }
 
     Column(modifier = Modifier.padding(16.dp).fillMaxSize()) {
         TextField(
             value = totalWage,
             onValueChange = { 
-                totalWage = it
-                it.toLongOrNull()?.let { wage ->
-                    viewModel.updateProject(project.copy(totalWage = wage))
+                val englishDigits = NumberUtils.englishizeDigits(it)
+                if (englishDigits.all { char -> char.isDigit() }) {
+                    totalWage = englishDigits
+                    englishDigits.toLongOrNull()?.let { wage ->
+                        viewModel.updateProjectRemote(project.copy(totalWage = wage))
+                    }
                 }
             },
             label = { Text(stringResource(R.string.total_wage)) },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            visualTransformation = if (useEnglishNumbers) VisualTransformation.None else NumberUtils.getPersianNumberTransformation()
         )
         Spacer(modifier = Modifier.height(16.dp))
-        Text(text = "جمع متریال: ${formatPrice(totalMaterial)} تومان", style = MaterialTheme.typography.titleMedium)
-        Text(text = "دستمزد: ${formatPrice(project.totalWage)} تومان", style = MaterialTheme.typography.titleMedium)
+        Text(text = "جمع متریال: ${NumberUtils.formatPrice(totalMaterial, useEnglishNumbers)} تومان", style = MaterialTheme.typography.titleMedium)
+        Text(text = "دستمزد: ${NumberUtils.formatPrice(project.totalWage, useEnglishNumbers)} تومان", style = MaterialTheme.typography.titleMedium)
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
         Text(
-            text = "جمع کل: ${formatPrice(totalMaterial + project.totalWage)} تومان",
+            text = "جمع کل: ${NumberUtils.formatPrice(totalMaterial + project.totalWage, useEnglishNumbers)} تومان",
             style = MaterialTheme.typography.headlineSmall,
             color = MaterialTheme.colorScheme.primary
         )

@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Security
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.oqba26.barghkar.R
+import com.oqba26.barghkar.ui.components.CustomDialog
 import com.oqba26.barghkar.ui.viewmodels.AuthViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -32,9 +33,19 @@ fun SettingsScreen(
     val context = LocalContext.current
     val settingsManager = (context.applicationContext as? BarghKarApp)?.settingsManager
     val selectedFont by settingsManager?.selectedFont?.collectAsState() ?: remember { mutableStateOf(AppFont.Estedad) }
+    val useEnglishNumbers by settingsManager?.useEnglishNumbers?.collectAsState() ?: remember { mutableStateOf(false) }
     val userProfile by authViewModel.userProfile.collectAsState()
     val apprentices by authViewModel.apprentices.collectAsState()
+    val error by authViewModel.error.collectAsState()
+    val isLoading by authViewModel.isLoading.collectAsState()
     var expanded by remember { mutableStateOf(value = false) }
+
+    LaunchedEffect(error) {
+        error?.let {
+            android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_LONG).show()
+            authViewModel.clearError()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -46,9 +57,10 @@ fun SettingsScreen(
         LazyColumn(
             modifier = Modifier
                 .padding(padding)
-                .fillMaxSize()
-                .padding(16.dp)
+                .fillMaxSize(),
+            contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 8.dp)
         ) {
+            // ... بقیه موارد همان قبلی
             item {
                 Text(
                     text = stringResource(R.string.appearance_settings),
@@ -63,6 +75,7 @@ fun SettingsScreen(
                     item {
                         TeamManagementSection(
                             apprentices = apprentices,
+                            isLoading = isLoading,
                             onAddApprentice = { authViewModel.addApprentice(it) },
                             onUpdatePermissions = { id, perms ->
                                 authViewModel.updateApprenticePermissions(
@@ -74,7 +87,7 @@ fun SettingsScreen(
                     }
                 }
                 UserRole.APPRENTICE -> {
-                    item {
+                    item(key = userProfile?.permissions) {
                         val profile = userProfile
                         if (profile != null) {
                             ApprenticeStatusSection(userProfile = profile)
@@ -144,7 +157,31 @@ fun SettingsScreen(
             }
 
             item {
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(24.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "نمایش اعداد به انگلیسی",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Switch(
+                        checked = useEnglishNumbers,
+                        onCheckedChange = { settingsManager?.setUseEnglishNumbers(it) }
+                    )
+                }
+                Text(
+                    text = "در صورت غیرفعال بودن، تمام اعداد به صورت فارسی نمایش داده می‌شوند.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray
+                )
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(24.dp))
                 Button(
                     onClick = { authViewModel.signOut() },
                     modifier = Modifier.fillMaxWidth(),
@@ -155,7 +192,6 @@ fun SettingsScreen(
                 ) {
                     Text(text = "خروج از حساب کاربری")
                 }
-                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
@@ -164,6 +200,7 @@ fun SettingsScreen(
 @Composable
 fun TeamManagementSection(
     apprentices: List<com.oqba26.barghkar.data.model.UserProfile>,
+    isLoading: Boolean,
     onAddApprentice: (String) -> Unit,
     onUpdatePermissions: (String, List<ApprenticePermission>) -> Unit,
     onRemoveApprentice: (String) -> Unit
@@ -189,17 +226,21 @@ fun TeamManagementSection(
                 label = { Text("ایمیل شاگرد جدید") },
                 modifier = Modifier.fillMaxWidth(),
                 trailingIcon = {
-                    IconButton(
-                        enabled = apprenticeEmail.trim().isNotBlank(),
-                        onClick = {
-                            val normalizedEmail = apprenticeEmail.trim()
-                            if (normalizedEmail.isNotBlank()) {
-                                onAddApprentice(normalizedEmail)
-                                apprenticeEmail = ""
+                    if (isLoading) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                    } else {
+                        IconButton(
+                            enabled = apprenticeEmail.trim().isNotBlank(),
+                            onClick = {
+                                val normalizedEmail = apprenticeEmail.trim()
+                                if (normalizedEmail.isNotBlank()) {
+                                    onAddApprentice(normalizedEmail)
+                                    apprenticeEmail = ""
+                                }
                             }
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = "افزودن")
                         }
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = "افزودن")
                     }
                 },
                 singleLine = true
@@ -243,8 +284,11 @@ fun ApprenticeItem(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = apprentice.fullName ?: apprentice.email ?: "بدون نام", style = MaterialTheme.typography.bodyLarge)
-                Text(text = apprentice.email ?: "", style = MaterialTheme.typography.labelSmall)
+                val displayName = if (!apprentice.fullName.isNullOrBlank()) apprentice.fullName else apprentice.email?.substringBefore("@") ?: "بدون نام"
+                Text(text = displayName, style = MaterialTheme.typography.bodyLarge)
+                if (!apprentice.fullName.isNullOrBlank()) {
+                    Text(text = apprentice.email ?: "", style = MaterialTheme.typography.labelSmall)
+                }
             }
             Row {
                 IconButton(onClick = { showPermissionDialog = true }) {
@@ -257,7 +301,7 @@ fun ApprenticeItem(
         }
         
         if (showPermissionDialog) {
-            AlertDialog(
+            CustomDialog(
                 onDismissRequest = { showPermissionDialog = false },
                 title = { Text("تنظیم دسترسی‌ها") },
                 text = {
@@ -265,26 +309,34 @@ fun ApprenticeItem(
                         ApprenticePermission.entries.forEach { permission ->
                             val isChecked = apprentice.permissions.contains(permission)
                             Row(
-                                modifier = Modifier.fillMaxWidth().clickable {
-                                    val newPerms = if (isChecked) apprentice.permissions - permission else apprentice.permissions + permission
-                                    onUpdatePermissions(newPerms)
-                                }.padding(vertical = 8.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        val newPerms = if (isChecked) apprentice.permissions - permission else apprentice.permissions + permission
+                                        onUpdatePermissions(newPerms)
+                                    }
+                                    .padding(vertical = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Checkbox(checked = isChecked, onCheckedChange = null)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text(text = when(permission) {
-                                    ApprenticePermission.MANAGE_INVENTORY -> "مدیریت انبار"
-                                    ApprenticePermission.EDIT_PROJECTS -> "ویرایش پروژه‌ها"
-                                    ApprenticePermission.VIEW_FINANCE -> "مشاهده گزارش مالی"
-                                })
+                                Text(
+                                    text = when (permission) {
+                                        ApprenticePermission.MANAGE_INVENTORY -> "مدیریت انبار"
+                                        ApprenticePermission.EDIT_PROJECTS -> "ویرایش پروژه‌ها"
+                                        ApprenticePermission.VIEW_FINANCE -> "مشاهده گزارش مالی"
+                                    }
+                                )
                             }
                         }
                     }
                 },
                 confirmButton = {
-                    TextButton(onClick = { showPermissionDialog = false }) { Text("بستن") }
-                }
+                    Button(onClick = { showPermissionDialog = false }) {
+                        Text("بستن")
+                    }
+                },
+                dismissButton = {} // در این دیالوگ نیازی به دکمه انصراف نیست
             )
         }
     }

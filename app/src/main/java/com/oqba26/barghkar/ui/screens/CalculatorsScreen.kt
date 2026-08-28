@@ -13,8 +13,16 @@ import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
+import com.oqba26.barghkar.BarghKarApp
+import com.oqba26.barghkar.utils.NumberUtils
 import com.oqba26.barghkar.R
 import com.oqba26.barghkar.ui.viewmodels.UtilityViewModel
+import androidx.compose.ui.text.input.VisualTransformation
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -23,6 +31,10 @@ fun CalculatorsScreen(
     onNavigateToVoltageDrop: () -> Unit,
     utilityViewModel: UtilityViewModel = viewModel()
 ) {
+    val context = LocalContext.current
+    val settingsManager = (context.applicationContext as? BarghKarApp)?.settingsManager
+    val useEnglishNumbers by settingsManager?.useEnglishNumbers?.collectAsState() ?: remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             TopAppBar(title = { Text(stringResource(R.string.technical_calculations)) })
@@ -38,7 +50,8 @@ fun CalculatorsScreen(
             UnitConverterCard(
                 awgValue = utilityViewModel.awgValue,
                 mm2Value = utilityViewModel.mm2Value,
-                onAwgChange = { utilityViewModel.onAwgChange(it) }
+                useEnglishNumbers = useEnglishNumbers,
+                onAwgChange = { utilityViewModel.onAwgChange(NumberUtils.englishizeDigits(it)) }
             )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -71,6 +84,7 @@ fun CalculatorItem(title: String, onClick: () -> Unit) {
 fun UnitConverterCard(
     awgValue: String,
     mm2Value: String,
+    useEnglishNumbers: Boolean,
     onAwgChange: (String) -> Unit
 ) {
     ElevatedCard(
@@ -106,7 +120,8 @@ fun UnitConverterCard(
                     modifier = Modifier.weight(1f),
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal),
-                    singleLine = true
+                    singleLine = true,
+                    visualTransformation = if (useEnglishNumbers) VisualTransformation.None else NumberUtils.getPersianNumberTransformation()
                 )
                 OutlinedTextField(
                     value = mm2Value,
@@ -119,7 +134,8 @@ fun UnitConverterCard(
                         focusedBorderColor = MaterialTheme.colorScheme.secondary,
                         unfocusedBorderColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f)
                     ),
-                    singleLine = true
+                    singleLine = true,
+                    visualTransformation = if (useEnglishNumbers) VisualTransformation.None else NumberUtils.getPersianNumberTransformation()
                 )
             }
         }

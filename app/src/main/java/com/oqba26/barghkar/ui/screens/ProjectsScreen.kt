@@ -13,13 +13,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.VisualTransformation
+import com.oqba26.barghkar.BarghKarApp
+import com.oqba26.barghkar.utils.NumberUtils
 import com.oqba26.barghkar.R
 import com.oqba26.barghkar.ui.components.CustomDialog
 import com.oqba26.barghkar.ui.viewmodels.AuthViewModel
 import com.oqba26.barghkar.ui.viewmodels.CustomerViewModel
 import com.oqba26.barghkar.ui.viewmodels.ProjectViewModel
+import com.oqba26.barghkar.utils.VibrationUtils
+import android.widget.Toast
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,21 +37,28 @@ fun ProjectsScreen(
     customerViewModel: CustomerViewModel = viewModel(),
     authViewModel: AuthViewModel = viewModel()
 ) {
+    val context = LocalContext.current
+    val settingsManager = (context.applicationContext as? BarghKarApp)?.settingsManager
+    val useEnglishNumbers by settingsManager?.useEnglishNumbers?.collectAsState() ?: remember { mutableStateOf(false) }
+
     var showDialog by remember { mutableStateOf(value = false) }
+    var projectToDelete by remember { mutableStateOf<com.oqba26.barghkar.data.local.entity.ProjectEntity?>(null) }
     val projects by viewModel.allProjects.collectAsState()
     val customers by customerViewModel.allCustomers.collectAsState()
     val isMaster = authViewModel.isMaster()
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text(stringResource(R.string.projects)) })
-        },
-        floatingActionButton = {
-            if (isMaster) {
-                FloatingActionButton(onClick = { showDialog = true }) {
-                    Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_project))
+            TopAppBar(
+                title = { Text(stringResource(R.string.projects)) },
+                actions = {
+                    if (isMaster) {
+                        IconButton(onClick = { showDialog = true }) {
+                            Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_project))
+                        }
+                    }
                 }
-            }
+            )
         }
     ) { innerPadding ->
         LazyColumn(
@@ -77,9 +92,16 @@ fun ProjectsScreen(
                                     color = MaterialTheme.colorScheme.secondary
                                 )
                             }
+                            // نمایش متراژ و قیمت در لیست پروژه
+                            if (project.infrastructureArea > 0) {
+                                Text(
+                                    text = "متراژ: ${NumberUtils.formatNumber(project.infrastructureArea, useEnglishNumbers)} متر",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
                         }
                         if (isMaster) {
-                            IconButton(onClick = { viewModel.deleteProject(project) }) {
+                            IconButton(onClick = { projectToDelete = project }) {
                                 Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete))
                             }
                         }
@@ -144,25 +166,114 @@ fun ProjectsScreen(
                             Text(text = "جزئیات فنی و مالی", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
                             Spacer(modifier = Modifier.height(8.dp))
                             
-                            TextField(value = area, onValueChange = { area = it }, label = { Text(stringResource(R.string.infrastructure_area)) }, modifier = Modifier.fillMaxWidth())
+                            TextField(
+                                value = area,
+                                onValueChange = { 
+                                    val englishDigits = NumberUtils.englishizeDigits(it)
+                                    if (englishDigits.all { char -> char.isDigit() || char == '.' }) {
+                                        area = englishDigits
+                                    } else {
+                                        android.widget.Toast.makeText(context, "لطفاً فقط عدد وارد کنید", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                label = { Text(stringResource(R.string.infrastructure_area)) },
+                                modifier = Modifier.fillMaxWidth(),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                visualTransformation = if (useEnglishNumbers) VisualTransformation.None else NumberUtils.getPersianNumberTransformation()
+                            )
                             Spacer(modifier = Modifier.height(8.dp))
-                            TextField(value = priceFixture, onValueChange = { priceFixture = it }, label = { Text(stringResource(R.string.price_per_fixture)) }, modifier = Modifier.fillMaxWidth())
+                            TextField(
+                                value = priceFixture,
+                                onValueChange = { 
+                                    val englishDigits = NumberUtils.englishizeDigits(it)
+                                    if (englishDigits.all { char -> char.isDigit() }) {
+                                        priceFixture = englishDigits
+                                    } else {
+                                        android.widget.Toast.makeText(context, "لطفاً فقط عدد وارد کنید", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                label = { Text(stringResource(R.string.price_per_fixture)) },
+                                modifier = Modifier.fillMaxWidth(),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                visualTransformation = if (useEnglishNumbers) VisualTransformation.None else NumberUtils.getPersianNumberTransformation()
+                            )
                             Spacer(modifier = Modifier.height(8.dp))
-                            TextField(value = priceMeter, onValueChange = { priceMeter = it }, label = { Text(stringResource(R.string.price_per_meter)) }, modifier = Modifier.fillMaxWidth())
+                            TextField(
+                                value = priceMeter,
+                                onValueChange = { 
+                                    val englishDigits = NumberUtils.englishizeDigits(it)
+                                    if (englishDigits.all { char -> char.isDigit() }) {
+                                        priceMeter = englishDigits
+                                    } else {
+                                        android.widget.Toast.makeText(context, "لطفاً فقط عدد وارد کنید", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                label = { Text(stringResource(R.string.price_per_meter)) },
+                                modifier = Modifier.fillMaxWidth(),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                visualTransformation = if (useEnglishNumbers) VisualTransformation.None else NumberUtils.getPersianNumberTransformation()
+                            )
                             
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(text = "مراحل پرداخت", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
                             Spacer(modifier = Modifier.height(8.dp))
                             
-                            TextField(value = p1, onValueChange = { p1 = it }, label = { Text(stringResource(R.string.first_payment)) }, modifier = Modifier.fillMaxWidth())
+                            TextField(
+                                value = p1,
+                                onValueChange = { 
+                                    val englishDigits = NumberUtils.englishizeDigits(it)
+                                    if (englishDigits.all { char -> char.isDigit() }) {
+                                        p1 = englishDigits
+                                    } else {
+                                        android.widget.Toast.makeText(context, "لطفاً فقط عدد وارد کنید", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                label = { Text(stringResource(R.string.first_payment)) },
+                                modifier = Modifier.fillMaxWidth(),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                visualTransformation = if (useEnglishNumbers) VisualTransformation.None else NumberUtils.getPersianNumberTransformation()
+                            )
                             Spacer(modifier = Modifier.height(8.dp))
-                            TextField(value = p2, onValueChange = { p2 = it }, label = { Text(stringResource(R.string.second_payment)) }, modifier = Modifier.fillMaxWidth())
+                            TextField(
+                                value = p2,
+                                onValueChange = { 
+                                    val englishDigits = NumberUtils.englishizeDigits(it)
+                                    if (englishDigits.all { char -> char.isDigit() }) {
+                                        p2 = englishDigits
+                                    } else {
+                                        android.widget.Toast.makeText(context, "لطفاً فقط عدد وارد کنید", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                label = { Text(stringResource(R.string.second_payment)) },
+                                modifier = Modifier.fillMaxWidth(),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                visualTransformation = if (useEnglishNumbers) VisualTransformation.None else NumberUtils.getPersianNumberTransformation()
+                            )
                             Spacer(modifier = Modifier.height(8.dp))
-                            TextField(value = p3, onValueChange = { p3 = it }, label = { Text(stringResource(R.string.third_payment)) }, modifier = Modifier.fillMaxWidth())
+                            TextField(
+                                value = p3,
+                                onValueChange = { 
+                                    val englishDigits = NumberUtils.englishizeDigits(it)
+                                    if (englishDigits.all { char -> char.isDigit() }) {
+                                        p3 = englishDigits
+                                    } else {
+                                        android.widget.Toast.makeText(context, "لطفاً فقط عدد وارد کنید", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                label = { Text(stringResource(R.string.third_payment)) },
+                                modifier = Modifier.fillMaxWidth(),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                visualTransformation = if (useEnglishNumbers) VisualTransformation.None else NumberUtils.getPersianNumberTransformation()
+                            )
                         }
                     }
                 },
                 confirmButton = {
+                    TextButton(onClick = { showDialog = false }) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                },
+                dismissButton = {
                     Button(
                         onClick = {
                             val cleanName = name.trim()
@@ -174,8 +285,8 @@ fun ProjectsScreen(
                             val parsedP2 = p2.toLongOrNull() ?: 0L
                             val parsedP3 = p3.toLongOrNull() ?: 0L
 
-                            if (cleanName.isNotBlank() && cleanDescription.isNotBlank()) {
-                                viewModel.addProject(
+                            if (cleanName.isNotBlank() && cleanDescription.isNotBlank() && selectedCustomerId != null) {
+                                viewModel.addProjectRemote(
                                     name = cleanName,
                                     description = cleanDescription,
                                     customerId = selectedCustomerId,
@@ -187,20 +298,39 @@ fun ProjectsScreen(
                                     p3 = parsedP3
                                 )
                                 showDialog = false
+                            } else {
+                                VibrationUtils.vibrate(context)
+                                Toast.makeText(context, "لطفاً نام پروژه، توضیحات و مشتری را انتخاب کنید", Toast.LENGTH_SHORT).show()
                             }
                         },
                     ) {
                         Text(stringResource(R.string.confirm))
                     }
                 },
-                dismissButton = {
-                    Button(
-                        onClick = { showDialog = false },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
-                    ) {
+            )
+        }
+
+        if (projectToDelete != null) {
+            CustomDialog(
+                onDismissRequest = { projectToDelete = null },
+                title = { Text("حذف پروژه") },
+                text = { Text("آیا از حذف پروژه ${projectToDelete?.name} مطمئن هستید؟") },
+                confirmButton = {
+                    TextButton(onClick = { projectToDelete = null }) {
                         Text(stringResource(R.string.cancel))
                     }
                 },
+                dismissButton = {
+                    Button(
+                        onClick = {
+                            projectToDelete?.let { viewModel.deleteProjectRemote(it) }
+                            projectToDelete = null
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text(stringResource(R.string.confirm))
+                    }
+                }
             )
         }
     }

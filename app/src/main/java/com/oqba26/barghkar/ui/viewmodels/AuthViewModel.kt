@@ -30,28 +30,23 @@ class AuthViewModel(private val repository: AuthRepository = AuthRepository()) :
 
     init {
         viewModelScope.launch {
-            sessionStatus.collect { status ->
-                if (status is SessionStatus.Authenticated) {
-                    // چک کردن تاییدیه ایمیل برای نشست‌های موجود
-                    if (!repository.isEmailConfirmed()) {
-                        _error.value = "ایمیل شما هنوز تایید نشده است."
-                        repository.signOut()
-                    } else {
-                        fetchProfile()
-                        fetchApprentices()
-                    }
-                } else {
-                    _userProfile.value = null
-                    _apprentices.value = emptyList()
+            repository.userProfileFlow.collect { profile ->
+                _userProfile.value = profile
+                if (profile != null && (profile.role == UserRole.MASTER)) {
+                    fetchApprentices()
                 }
             }
         }
     }
 
-    private fun fetchProfile() {
+    fun fetchProfile() {
         viewModelScope.launch {
             _userProfile.value = repository.getUserProfile()
         }
+    }
+
+    fun refreshProfile() {
+        fetchProfile()
     }
 
     fun fetchApprentices() {
@@ -133,15 +128,18 @@ class AuthViewModel(private val repository: AuthRepository = AuthRepository()) :
     fun addApprentice(email: String) {
         viewModelScope.launch {
             _isLoading.value = true
+            _isLoading.value = true
             _error.value = null
             try {
                 val validationError = repository.validateApprenticeEmail(email)
                 if (validationError != null) {
                     _error.value = validationError
+                    _isLoading.value = false
                     return@launch
                 }
                 repository.addApprenticeByEmail(email)
                 fetchApprentices()
+                _error.value = "شاگرد با موفقیت اضافه شد"
             } catch (e: Exception) {
                 _error.value = e.message ?: "خطا در افزودن شاگرد"
             } finally {
@@ -151,4 +149,9 @@ class AuthViewModel(private val repository: AuthRepository = AuthRepository()) :
     }
 
     fun isMaster(): Boolean = userProfile.value?.role == UserRole.MASTER
+
+    fun getOwnerId(): String? {
+        val profile = userProfile.value ?: return null
+        return if (profile.role == UserRole.APPRENTICE) profile.masterId ?: profile.id else profile.id
+    }
 }

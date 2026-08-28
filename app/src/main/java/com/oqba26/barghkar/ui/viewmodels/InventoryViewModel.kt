@@ -7,55 +7,77 @@ import com.oqba26.barghkar.data.InventoryRepository
 import com.oqba26.barghkar.data.local.AppDatabase
 import com.oqba26.barghkar.data.local.entity.InventoryMaterialEntity
 import com.oqba26.barghkar.security.InputValidators
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.collectLatest
+import com.oqba26.barghkar.data.remote.AuthRepository
+import com.oqba26.barghkar.data.sync.SyncManager
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class InventoryViewModel(application: Application) : AndroidViewModel(application) {
     private val repository: InventoryRepository
+    private val authRepository = AuthRepository()
+    
     val allInventory: StateFlow<List<InventoryMaterialEntity>>
-
-    private val _inventory = MutableStateFlow<List<InventoryMaterialEntity>>(emptyList())
 
     init {
         val inventoryDao = AppDatabase.getDatabase(application).inventoryDao()
         repository = InventoryRepository(inventoryDao)
-        allInventory = _inventory
+        allInventory = repository.allInventory.stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5000),
+            emptyList(),
+        )
 
         viewModelScope.launch {
-            repository.allInventory.collectLatest {
-                _inventory.value = it
+            authRepository.userProfileFlow.collect { profile ->
+                val ownerId = if (profile?.role == com.oqba26.barghkar.data.model.UserRole.APPRENTICE) {
+                    profile.masterId ?: profile.id
+                } else {
+                    profile?.id ?: ""
+                }
+                if (ownerId.isNotEmpty()) {
+                    repository.syncRemoteToLocal(ownerId)
+                }
             }
         }
     }
 
-    fun addInventoryItem(name: String, quantity: Double, unit: String) {
-        val validationError = InputValidators.validateInventory(name, quantity, unit)
-        if (validationError != null) {
-            throw IllegalArgumentException(validationError)
-        }
+    fun addInventoryItemRemote(name: String, quantity: Double, unit: String) {
+        InputValidators.validateInventory(name, quantity, unit)?.let { throw IllegalArgumentException(it) }
 
         viewModelScope.launch {
-            repository.insertInventory(
-                InventoryMaterialEntity(
-                    name = name.trim(),
-                    quantity = quantity,
-                    unit = unit.trim()
+            val profile = authRepository.userProfileFlow.first()
+            val ownerId = if (profile?.role == com.oqba26.barghkar.data.model.UserRole.APPRENTICE) {
+                profile.masterId ?: profile.id
+            } else {
+                profile?.id ?: ""
+            }
+            
+            if (ownerId.isNotEmpty()) {
+                repository.addInventoryItem(
+                    InventoryMaterialEntity(
+                        userId = ownerId,
+                        name = name.trim(),
+                        quantity = quantity,
+                        unit = unit.trim(),
+                    ),
                 )
-            )
+                SyncManager.triggerImmediateSync(getApplication())
+            }
         }
     }
 
-    fun updateInventoryItem(item: InventoryMaterialEntity) {
+    fun deleteInventoryItemRemote(itemId: Long) {
         viewModelScope.launch {
-            repository.updateInventory(item)
-        }
-    }
-
-    fun deleteInventoryItem(item: InventoryMaterialEntity) {
-        viewModelScope.launch {
-            repository.deleteInventory(item)
+            val item = repository.getInventoryItemById(itemId)
+            item?.let { 
+                repository.deleteInventoryItem(it)
+                SyncManager.triggerImmediateSync(getApplication())
+            }
         }
     }
 }
