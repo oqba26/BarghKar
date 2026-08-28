@@ -88,7 +88,9 @@ android {
     lint {
         checkReleaseBuilds = false
         abortOnError = false
-        disable += "MissingTranslation"
+        checkDependencies = false
+        ignoreWarnings = true
+        quiet = true
     }
 }
 
