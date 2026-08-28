@@ -75,14 +75,6 @@ fun UpdateDialog(
             }
         },
         confirmButton = {
-            Button(
-                onClick = onConfirm,
-                enabled = !isDownloading
-            ) {
-                Text(text = "تایید و بروزرسانی")
-            }
-        },
-        dismissButton = {
             if (!updateInfo.isForceUpdate && !isDownloading) {
                 TextButton(
                     onClick = onDismiss,
@@ -92,6 +84,14 @@ fun UpdateDialog(
                 ) {
                     Text(text = "بعداً")
                 }
+            }
+        },
+        dismissButton = {
+            Button(
+                onClick = onConfirm,
+                enabled = !isDownloading
+            ) {
+                Text(text = if (isDownloading) "در حال دانلود..." else "تایید و بروزرسانی")
             }
         },
     )

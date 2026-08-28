@@ -26,32 +26,29 @@ import com.oqba26.barghkar.data.remote.SupabaseClient
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val settingsManager = (application as BarghKarApp).settingsManager
 
         // هندل کردن دیپ‌لینک برای تایید ایمیل
         intent?.let {
             SupabaseClient.client.handleDeeplinks(it)
         }
         
-        // پاکسازی فایل‌های APK قدیمی
-        val updateManager = UpdateManager(this)
-        updateManager.cleanupOldApks()
-
         // تنظیم همگام‌سازی خودکار
         setupSync()
 
         enableEdgeToEdge()
         setContent {
+            val settingsManager = (application as BarghKarApp).settingsManager
             val selectedFont by settingsManager.selectedFont.collectAsState()
             val scope = rememberCoroutineScope()
+            val updateManager = remember { UpdateManager(this) }
             
             BarghKarTheme(appFont = selectedFont) {
                 var updateInfo by remember { mutableStateOf<UpdateInfo?>(null) }
-                var isDownloading by remember { mutableStateOf(value = false) }
+                var isDownloading by remember { mutableStateOf(false) }
                 var downloadProgress by remember { mutableFloatStateOf(0f) }
-                // val updateManager = remember { UpdateManager(this) } // حذف شد چون در بالا تعریف شده
 
                 LaunchedEffect(Unit) {
+                    updateManager.cleanupOldApks()
                     delay(2000.milliseconds)
                     updateInfo = updateManager.checkForUpdate()
                 }
@@ -63,7 +60,11 @@ class MainActivity : ComponentActivity() {
                         updateInfo = info,
                         isDownloading = isDownloading,
                         progress = downloadProgress,
-                        onDismiss = { updateInfo = null },
+                        onDismiss = { 
+                            if (!isDownloading) {
+                                updateInfo = null 
+                            }
+                        },
                     ) {
                         isDownloading = true
                         val downloadId = updateManager.downloadAndInstall(info.url, "BarghKar_Update.apk")
@@ -72,8 +73,9 @@ class MainActivity : ComponentActivity() {
                                 updateManager.getDownloadProgress(downloadId).collect { progress ->
                                     downloadProgress = progress
                                     if (progress >= 1f) {
+                                        // وقتی دانلود ۱۰۰٪ شد، دیالوگ را نمی‌بندیم تا نصب شروع شود
+                                        // یا می‌توانیم استیت دانلود را ریست کنیم
                                         isDownloading = false
-                                        updateInfo = null
                                     }
                                 }
                             }
